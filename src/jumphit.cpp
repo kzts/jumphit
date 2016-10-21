@@ -35,10 +35,12 @@ typedef struct { // MyObject structure
 
 static int STEPS = 0; // simulation step number
 
-#define  NUM_l 9       // link number
-#define  NUM_j 8       // joint number
+#define  NUM_l 4       // link number
+//#define  NUM_j 3       // joint number
+//#define  NUM_l 9       // link number
+//#define  NUM_j 8       // joint number
 MyObject rlink[NUM_l]; // number
-dJointID joint[NUM_j]; // joint ID number
+dJointID joint[NUM_l]; // joint ID number
 
 dReal Pi = 3.14159;
 
@@ -47,36 +49,55 @@ dReal Pi = 3.14159;
 //double Angle_data[Num_t][NUM];
 //double Position_data[Num_t][NUM][XYZ];
 double Pos_link_data [Num_t][NUM_l][XYZ];
-double Pos_joint_data[Num_t][NUM_j][XYZ];
-double Angle_data[Num_t][NUM_j];
+double Pos_joint_data[Num_t][NUM_l][XYZ];
+double Angle_data[Num_t][NUM_l];
 
 char filename_o[999];
 char filename_m[999];
 
 //dReal jointTorque[NUM];
-dReal jointTorque[NUM_j];
+dReal jointTorque[NUM_l];
 unsigned int DirName;
 
-double theta[NUM_l] = { Pi, Pi/6.0, 5.0*Pi/6.0, Pi/6.0}; 
+//double theta[NUM_l] = { Pi, Pi/6.0, 5.0*Pi/6.0, Pi/6.0}; 
 //double phi[NUM_l];
 
 dReal L_Trunk[3] = {0.2, 0.2, 0.2};
-dReal radius[NUM_l] = { 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02}; // radius
+dReal radius[NUM_l] = { 0.10, 0.01, 0.02, 0.02};
+dReal length[NUM_l] = { 0.30, 0.01, 0.28, 0.30};
+dReal weight[NUM_l] = { 5.00, 0.05, 0.60, 0.60};
+//dReal radius[NUM_l] = { 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02}; // radius
+//dReal length[NUM_l] = { 0.20, 0.02, 0.28, 0.30, 0.02, 0.28, 0.30, 0.02, 0.28};
+//dReal weight[NUM_l] = { 5.00, 0.05, 0.60, 0.60, 0.05, 0.60, 0.60, 0.05, 0.40};
 
 void  makeRobot() // make the robot
 {
   dMass mass; // mass parameter
   dMatrix3 R;
-  dReal length[NUM_l] = { 0.00, 0.00, 0.28, 0.30, 0.00, 0.28, 0.30, 0.00, 0.28};
-  dReal weight[NUM_l] = { 5.00, 0.05, 0.60, 0.60, 0.05, 0.60, 0.60, 0.05, 0.40};
+
   dReal axis_x_pitch = 0, axis_y_pitch = 1, axis_z_pitch = 0; // joint axis x,y,z 
   dReal axis_x_roll  = 1, axis_y_roll  = 0, axis_z_roll  = 0; // joint axis x,y,z 
 
-  dReal x[NUM_l], y[NUM_l], z[NUM_l];  
-  dReal c_x[NUM_l], c_y[NUM_l], c_z[NUM_l];   
+  //dReal x[NUM_l], y[NUM_l], z[NUM_l];  
+  //dReal c_x[NUM_l], c_y[NUM_l], c_z[NUM_l];   
 
-  dReal L_Trunk[3] = {0.2, 0.2, 0.2};
+  dReal L_Trunk[3] = { 0.2, 0.2, 0.2};
 
+  dReal height_hip = 1.0;
+
+  dReal a[NUM_l][XYZ]; // axis position in the world coordination
+  dReal c[NUM_l][XYZ]; // link CoG position in the world coordination
+
+  a[0][0] = + 0.000; a[0][1] = + 0.000; a[0][2] = + 0.000;
+  a[1][0] = + 0.000; a[1][1] = + 0.090; a[1][2] = + 0.000;
+  a[2][0] = - 0.028; a[2][1] = + 0.144; a[2][2] = + 0.000;
+  a[3][0] = - 0.054; a[3][1] = + 0.144; a[3][2] = - 0.288;  
+
+  c[0][0] = + 0.000; c[0][1] = + 0.000; c[0][2] = + 0.142;  
+  c[1][0] = - 0.028; c[1][1] = + 0.144; c[1][2] = + 0.000;  
+  c[2][0] = - 0.082; c[2][1] = + 0.172; c[2][2] = - 0.144;  
+  c[3][0] = - 0.054; c[3][1] = + 0.144; c[3][2] = - 0.444;  
+ 
   /*
   c_x[0] = 0; c_y[0] = 0; c_z[0] = 1.2* r[0] + 0.5* length[0]* sin(theta[0]);
 
@@ -91,35 +112,39 @@ void  makeRobot() // make the robot
     z[i]   = c_z[i] + 0.5* length[i]* sin(theta[i]); 
   }
   */
-  x[0] = +0.000; y[0] = +0.000; z[0] = +0.000 + 1.0;
 
-  x[1] = -0.028; y[1] = +0.144; z[1] = +0.000 + 1.0;
-  x[2] = -0.082; y[2] = +0.172; z[2] = -0.144 + 1.0;
-  x[3] = -0.082; y[3] = +0.172; z[3] = -0.300 + 1.0;
+  /*
+  x[0] = +0.000; y[0] = +0.000; z[0] = +0.100 + height_hip;
 
+  x[1] = -0.028; y[1] = +0.144; z[1] = +0.000 + height_hip;
+  x[2] = -0.082; y[2] = +0.172; z[2] = -0.144 + height_hip;
+  x[3] = -0.082; y[3] = +0.172; z[3] = -0.300 + height_hip;
   x[4] = +x[1];  y[4] = -y[4];  z[4] = +z[4];
-  x[5] = +x[5];  y[5] = -y[5];  z[5] = +z[5]; 
-  x[6] = +x[6];  y[6] = -y[6];  z[6] = +z[6]; 
+  x[5] = +x[5];  y[5] = -y[5];  z[5] = +z[5];
+  x[6] = +x[6];  y[6] = -y[6];  z[6] = +z[6];
 
-  x[7] = +0.000; y[7] = +0.138; z[7] = +0.142 + 1.0;
-  x[8] = +0.021; y[8] = +0.184; z[8] = +0.142 + 1.0;
+  x[7] = +0.000; y[7] = +0.138; z[7] = +0.142 + height_hip;
+  x[8] = +0.021; y[8] = +0.184; z[8] = +0.142 + height_hip;
 
-  c_x[0] = +0.000;  c_y[0] = +0.090;  c_z[0] = +0.000; 
-  c_x[1] = -0.028;  c_y[1] = +0.144;  c_z[1] = +0.000; 
-  c_x[2] = -0.082;  c_y[2] = +0.172;  c_z[2] = -0.288; 
+  c_x[0] = +0.000;  c_y[0] = +0.090;  c_z[0] = +0.000 + height_hip;
+  c_x[1] = -0.028;  c_y[1] = +0.144;  c_z[1] = +0.000 + height_hip;
+  c_x[2] = -0.082;  c_y[2] = +0.172;  c_z[2] = -0.288 + height_hip;
 
   c_x[3] = +c_x[3]; c_y[3] = -c_y[3]; c_z[3] = +c_x[3];
   c_x[4] = +c_x[4]; c_y[4] = -c_y[4]; c_z[4] = +c_x[4];
   c_x[5] = +c_x[5]; c_y[5] = -c_y[5]; c_z[5] = +c_x[5];
 
-  c_x[6] = +0.021;  c_y[6] = +0.138;  c_z[6] = +0.284; 
-  c_x[7] = +0.021;  c_y[7] = +0.184;  c_z[7] = +0.284; 
+  c_x[6] = +0.021;  c_y[6] = +0.138;  c_z[6] = +0.284 + height_hip;
+  c_x[7] = +0.021;  c_y[7] = +0.184;  c_z[7] = +0.284 + height_hip;
+  */
 
   for (int i = 0; i < NUM_l; i++) {
     rlink[i].body  = dBodyCreate( world);
 
-    // positionm posture
-    dBodySetPosition( rlink[i].body, x[i], y[i], z[i]);
+    // position, posture
+    //dBodySetPosition( rlink[i].body, x[i], y[i], z[i]);
+    //dBodySetPosition( rlink[i].body, c[i][0], c[i][1], c[i][2]);
+    dBodySetPosition( rlink[i].body, c[i][0], c[i][1], c[i][2] + height_hip);
     //dRFromAxisAndAngle( R, axis_x, axis_y, axis_z, - theta[i] - Pi/2.0);
     if ( i == 1 || i == 4 || i == 7)
       dRFromAxisAndAngle( R, axis_x_roll, axis_y_roll, axis_z_roll, 0);
@@ -151,13 +176,20 @@ void  makeRobot() // make the robot
   }
 
   // joint
-  for (int j = 0; j < NUM_j; j++) {
+  joint[0] = dJointCreateFixed( world, 0); // fixed base trunke
+  dJointAttach( joint[0], rlink[0].body, 0);
+  dJointSetFixed( joint[0]);
+  for (int j = 1; j < NUM_l; j++) {
     joint[j] = dJointCreateHinge( world, 0); // hinge
-    dJointAttach( joint[j], rlink[j + 1].body, rlink[j].body);
-    dJointSetHingeAnchor( joint[j], c_x[j], c_y[j], c_z[j]);
+    
+    //dJointAttach( joint[j], rlink[j + 1].body, rlink[j].body);
+    dJointAttach( joint[j], rlink[j].body, rlink[j - 1].body);
+    //dJointSetHingeAnchor( joint[j], a[j][0], a[j][1], a[j][2]);
+    dJointSetHingeAnchor( joint[j], a[j][0], a[j][1], a[j][2] + height_hip);
+    //dJointSetHingeAnchor( joint[j], c_x[j], c_y[j], c_z[j]);
     //dJointSetHingeAnchor( joint[j], c_x[j+1], c_y[j+1], c_z[j+1]);
     
-    if ( j == 0 || j == 3)
+    if ( j == 1 || j == 4)
       dJointSetHingeAxis( joint[j], axis_x_roll, axis_y_roll, axis_z_roll);
     else
       dJointSetHingeAxis( joint[j], axis_x_pitch, axis_y_pitch, axis_z_pitch);
@@ -174,18 +206,22 @@ void  makeRobot() // make the robot
 
 void drawRobot() // draw the robot
 {
-  dReal r,length;
+  //for (int i = 0; i < NUM_l; i++ )// draw capsule
+  //dsDrawCapsule( dBodyGetPosition( rlink[i].body), dBodyGetRotation( rlink[i].body), length[i], radius[i]);
+  
+  //dReal r, length;
   for (int i = 0; i < NUM_l; i++ ) { // draw capsule
     if ( i == 0){
-      dGeomCapsuleGetParams( rlink[i].geom, &r, &length);
       dsDrawBox( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), L_Trunk);
     }else if ( i == 1 || i == 4 || i == 7){
       dsDrawSphere( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), radius[i]);
     }else{
-      dGeomCapsuleGetParams( rlink[i].geom, &r, &length);
-      dsDrawCapsule(dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), length, r);
+      //dGeomCapsuleGetParams( rlink[i].geom, &r, &length);
+      //dsDrawCapsule( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), length, r);
+      dsDrawCapsule( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), length[i], radius[i]);
     }
   }
+  
 }
 
 
@@ -224,14 +260,13 @@ void destroyRobot() // destroy the robot
     dBodyDestroy(rlink[i].body); // destroy body
     dGeomDestroy(rlink[i].geom); // destroy geometory
   }
-  for (int i = 0; i < NUM_j; i++)
+  for (int i = 0; i < NUM_l; i++)
     dJointDestroy(joint[i]);     // destroy joint 
 }
 
 void AddTorque()
 {
-  dJointAddHingeTorque( joint[0], 0);
-  for (int i = 0; i < NUM_j; i++)
+  for (int i = 1; i < NUM_l; i++)
     dJointAddHingeTorque( joint[i], jointTorque[i]);
 }
 
@@ -244,7 +279,7 @@ void getState(){
     for (int d = 0; d < XYZ; d++)
       Pos_link_data[STEPS][i][d] = p[d];
   }
-  for (int i = 0; i < NUM_j; i++){
+  for (int i = 1; i < NUM_l; i++){
     dJointGetHingeAnchor( joint[i], res);
     for (int d = 0; d < XYZ; d++)
       Pos_joint_data[STEPS][i][d] = res[d];
@@ -270,7 +305,7 @@ static void simLoop(int pause) // simulation loop
     dWorldStep(world,0.001);
     dJointGroupEmpty(contactgroup);
     STEPS++;
-    //drawRobot(); // draw the robot
+    drawRobot(); // draw the robot
   }
 }
 
@@ -321,12 +356,12 @@ void saveData(){
     for(int i=0; i < NUM_l; i++)
       for(int d=0; d < XYZ; d++)
 	fout_m << Pos_link_data[t][i][d] << "\t";
-    for(int i=0; i < NUM_j; i++)  
+    for(int i=0; i < NUM_l; i++)  
       for(int d=0; d < XYZ; d++)        
 	fout_m << Pos_joint_data[t][i][d] << "\t";
     fout_m << endl;
   }
-  for(int i=0; i < NUM_j; i++)
+  for(int i=0; i < NUM_l; i++)
     fout_o << jointTorque[i] << "\t";
   fout_o << endl;
 
@@ -338,12 +373,12 @@ int main (int argc, char *argv[])
 {
   // variables for filaneme
   if ( argc != (NUM_l + 1)){
-    printf("error: input 4 values!: three joint torque and directory name\n");
+    printf("error: input 9 values!: eight joint torque and directory name\n");
     return 0;
   }
-  for(int i=0; i < NUM_j; i++)
+  for(int i=0; i < NUM_l; i++)
     jointTorque[i] = atof(argv[i + 1]);
-  DirName = atoi(argv[NUM_j + 1]);
+  DirName = atoi( argv[ NUM_l]);
 
   // initiation
   dInitODE();
@@ -360,9 +395,8 @@ int main (int argc, char *argv[])
   makeRobot();                                // set the robot
 
   // loop
-  dsSimulationLoop (argc, argv, 640, 480, &fn);
-  //for (int i = 0; i < Num_t; i++) 
-  //simLoop(0);
+  dsSimulationLoop ( argc, argv, 640, 480, &fn);
+  //for (int i = 0; i < Num_t; i++) simLoop(0);
 
   // termination
   dWorldDestroy (world);
