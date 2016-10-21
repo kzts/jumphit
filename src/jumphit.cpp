@@ -60,20 +60,24 @@ unsigned int DirName;
 double theta[NUM_l] = { Pi, Pi/6.0, 5.0*Pi/6.0, Pi/6.0}; 
 //double phi[NUM_l];
 
+dReal L_Trunk[3] = {0.2, 0.2, 0.2};
+dReal radius[NUM_l] = { 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02}; // radius
+
 void  makeRobot() // make the robot
 {
   dMass mass; // mass parameter
   dMatrix3 R;
-  dReal length[NUM_l] = {0.20, 0.30, 0.30, 0.50}; 
-  dReal weight[NUM_l] = {0.40, 0.80, 0.80, 3.60};
-  dReal r[NUM_l]      = {0.02, 0.02, 0.02, 0.02}; // radius
-  dReal axis_x = 0; // joint axis x 
-  dReal axis_y = 1; // joint axis y 
-  dReal axis_z = 0; // joint axis z 
+  dReal length[NUM_l] = { 0.00, 0.00, 0.28, 0.30, 0.00, 0.28, 0.30, 0.00, 0.28};
+  dReal weight[NUM_l] = { 5.00, 0.05, 0.60, 0.60, 0.05, 0.60, 0.60, 0.05, 0.40};
+  dReal axis_x_pitch = 0, axis_y_pitch = 1, axis_z_pitch = 0; // joint axis x,y,z 
+  dReal axis_x_roll  = 1, axis_y_roll  = 0, axis_z_roll  = 0; // joint axis x,y,z 
 
   dReal x[NUM_l], y[NUM_l], z[NUM_l];  
   dReal c_x[NUM_l], c_y[NUM_l], c_z[NUM_l];   
 
+  dReal L_Trunk[3] = {0.2, 0.2, 0.2};
+
+  /*
   c_x[0] = 0; c_y[0] = 0; c_z[0] = 1.2* r[0] + 0.5* length[0]* sin(theta[0]);
 
   for (int i = 1; i < NUM_l; i++) {
@@ -86,25 +90,77 @@ void  makeRobot() // make the robot
     y[i]   = c_y[i];
     z[i]   = c_z[i] + 0.5* length[i]* sin(theta[i]); 
   }
+  */
+  x[0] = +0.000; y[0] = +0.000; z[0] = +0.000 + 1.0;
+
+  x[1] = -0.028; y[1] = +0.144; z[1] = +0.000 + 1.0;
+  x[2] = -0.082; y[2] = +0.172; z[2] = -0.144 + 1.0;
+  x[3] = -0.082; y[3] = +0.172; z[3] = -0.300 + 1.0;
+
+  x[4] = +x[1];  y[4] = -y[4];  z[4] = +z[4];
+  x[5] = +x[5];  y[5] = -y[5];  z[5] = +z[5]; 
+  x[6] = +x[6];  y[6] = -y[6];  z[6] = +z[6]; 
+
+  x[7] = +0.000; y[7] = +0.138; z[7] = +0.142 + 1.0;
+  x[8] = +0.021; y[8] = +0.184; z[8] = +0.142 + 1.0;
+
+  c_x[0] = +0.000;  c_y[0] = +0.090;  c_z[0] = +0.000; 
+  c_x[1] = -0.028;  c_y[1] = +0.144;  c_z[1] = +0.000; 
+  c_x[2] = -0.082;  c_y[2] = +0.172;  c_z[2] = -0.288; 
+
+  c_x[3] = +c_x[3]; c_y[3] = -c_y[3]; c_z[3] = +c_x[3];
+  c_x[4] = +c_x[4]; c_y[4] = -c_y[4]; c_z[4] = +c_x[4];
+  c_x[5] = +c_x[5]; c_y[5] = -c_y[5]; c_z[5] = +c_x[5];
+
+  c_x[6] = +0.021;  c_y[6] = +0.138;  c_z[6] = +0.284; 
+  c_x[7] = +0.021;  c_y[7] = +0.184;  c_z[7] = +0.284; 
 
   for (int i = 0; i < NUM_l; i++) {
     rlink[i].body  = dBodyCreate( world);
-    dBodySetPosition( rlink[i].body,  x[i], y[i], z[i]);
-    dRFromAxisAndAngle( R, axis_x, axis_y, axis_z, - theta[i] - Pi/2.0);
+
+    // positionm posture
+    dBodySetPosition( rlink[i].body, x[i], y[i], z[i]);
+    //dRFromAxisAndAngle( R, axis_x, axis_y, axis_z, - theta[i] - Pi/2.0);
+    if ( i == 1 || i == 4 || i == 7)
+      dRFromAxisAndAngle( R, axis_x_roll, axis_y_roll, axis_z_roll, 0);
+    else
+      dRFromAxisAndAngle( R, axis_x_pitch, axis_y_pitch, axis_z_pitch, 0);
     dBodySetRotation( rlink[i].body, R);
+
+    // mass
     dMassSetZero( &mass);
-    dMassSetCapsuleTotal( &mass, weight[i], 3, r[i], length[i]);
+    if ( i == 0)
+      dMassSetBox ( &mass, weight[i], L_Trunk[0], L_Trunk[1], L_Trunk[2]);
+    else 
+      if ( i == 1 || i == 4 || i == 7)
+	dMassSetSphereTotal(  &mass, weight[i], radius[i]);
+      else
+	dMassSetCapsuleTotal( &mass, weight[i], 3, radius[i], length[i]);
     dBodySetMass( rlink[i].body, &mass);
-    rlink[i].geom  = dCreateCapsule( space, r[i], length[i]);
+
+    // geometory
+    //rlink[i].geom  = dCreateCapsule( space, r[i], length[i]);
+    if ( i == 0)
+      rlink[i].geom  = dCreateBox( space, L_Trunk[0], L_Trunk[1], L_Trunk[2]);
+    else 
+      if ( i == 1 || i == 4 || i == 7)
+	rlink[i].geom  = dCreateSphere( space, radius[i]);
+      else
+	rlink[i].geom  = dCreateCapsule( space, radius[i], length[i]);
     dGeomSetBody( rlink[i].geom, rlink[i].body);
   }
 
+  // joint
   for (int j = 0; j < NUM_j; j++) {
     joint[j] = dJointCreateHinge( world, 0); // hinge
     dJointAttach( joint[j], rlink[j + 1].body, rlink[j].body);
-    //dJointSetHingeAnchor( joint[j], c_x[j], c_y[j], c_z[j]);
-    dJointSetHingeAnchor( joint[j], c_x[j+1], c_y[j+1], c_z[j+1]);
-    dJointSetHingeAxis( joint[j], axis_x, axis_y, axis_z);
+    dJointSetHingeAnchor( joint[j], c_x[j], c_y[j], c_z[j]);
+    //dJointSetHingeAnchor( joint[j], c_x[j+1], c_y[j+1], c_z[j+1]);
+    
+    if ( j == 0 || j == 3)
+      dJointSetHingeAxis( joint[j], axis_x_roll, axis_y_roll, axis_z_roll);
+    else
+      dJointSetHingeAxis( joint[j], axis_x_pitch, axis_y_pitch, axis_z_pitch);
   }
 
   // define initial angle
@@ -120,11 +176,17 @@ void drawRobot() // draw the robot
 {
   dReal r,length;
   for (int i = 0; i < NUM_l; i++ ) { // draw capsule
-    dGeomCapsuleGetParams( rlink[i].geom, &r, &length);
-    dsDrawCapsule(dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), length, r);
+    if ( i == 0){
+      dGeomCapsuleGetParams( rlink[i].geom, &r, &length);
+      dsDrawBox( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), L_Trunk);
+    }else if ( i == 1 || i == 4 || i == 7){
+      dsDrawSphere( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), radius[i]);
+    }else{
+      dGeomCapsuleGetParams( rlink[i].geom, &r, &length);
+      dsDrawCapsule(dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), length, r);
+    }
   }
 }
-
 
 
 static void nearCallback(void *data, dGeomID o1, dGeomID o2) // collison detection calculation
