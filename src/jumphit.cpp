@@ -20,6 +20,8 @@ using namespace std;
 #define dsDrawCapsule  dsDrawCapsuleD
 #endif
 
+#define VIEW 1
+
 dWorldID world;             // dynamic simulation world
 dSpaceID space;             // contact dection space
 dGeomID  ground;            // ground
@@ -34,7 +36,7 @@ typedef struct { // MyObject structure
 
 static int STEPS = 0; // simulation step number
 
-#define  NUM_l 4       // link number
+#define  NUM_l 9       // link number
 MyObject rlink[NUM_l]; // number
 dJointID joint[NUM_l]; // joint ID number
 
@@ -52,34 +54,44 @@ char filename_m[999];
 dReal jointTorque[NUM_l];
 unsigned int DirName;
 
-dReal L_Trunk[3] = {0.2, 0.2, 0.2};
-dReal radius[NUM_l] = { 0.10, 0.01, 0.02, 0.02};
-dReal length[NUM_l] = { 0.30, 0.01, 0.28, 0.30};
-dReal weight[NUM_l] = { 5.00, 0.05, 0.60, 0.60};
+dReal L_Trunk[XYZ]  = { 0.15, 0.2, 0.426};
+dReal radius[NUM_l] = { 0.10,  0.01, 0.02, 0.02,  0.01, 0.02, 0.02,  0.01, 0.02};
+dReal length[NUM_l] = { 0.30,  0.01, 0.28, 0.30,  0.01, 0.28, 0.30,  0.01, 0.28};
+dReal weight[NUM_l] = { 5.00,  0.05, 0.60, 0.60,  0.05, 0.60, 0.60,  0.05, 0.40};
+
+// axis position in the world coordination
+dReal a[NUM_l][XYZ] = { 
+  { + 0.000, + 0.000, + 0.000},
+  { + 0.000, + 0.090, + 0.000},
+  { - 0.028, + 0.144, + 0.000},
+  { - 0.054, + 0.144, - 0.288},  
+  { + 0.000, - 0.090, + 0.000},
+  { - 0.028, - 0.144, + 0.000},
+  { - 0.054, - 0.144, - 0.288},
+  { + 0.021, + 0.138, + 0.426},
+  { + 0.021, + 0.184, + 0.426}};  
+
+// link CoG position in the world coordination
+dReal c[NUM_l][XYZ] = {
+  { + 0.000, + 0.000, + 0.218},  
+  { - 0.028, + 0.144, + 0.000},  
+  { - 0.082, + 0.172, - 0.144},  
+  { - 0.054, + 0.144, - 0.444},
+  { - 0.028, - 0.144, + 0.000},  
+  { - 0.082, - 0.172, - 0.144},  
+  { - 0.054, - 0.144, - 0.444},
+  { + 0.021, + 0.138, + 0.426},
+  { + 0.021, + 0.184, + 0.284}};
 
 void  makeRobot() // make the robot
 {
   dMass mass; // mass parameter
   dMatrix3 R;
-
-  dReal axis_x_pitch = 0, axis_y_pitch = 1, axis_z_pitch = 0; // joint axis x,y,z 
-  dReal axis_x_roll  = 1, axis_y_roll  = 0, axis_z_roll  = 0; // joint axis x,y,z 
+  
+  dReal axis_pitch[XYZ] = {0,1,0};
+  dReal axis_roll[XYZ]  = {1,0,0};
   dReal L_Trunk[3] = { 0.2, 0.2, 0.2};
   dReal height_hip = 1.0;
-
-  dReal a[NUM_l][XYZ]; // axis position in the world coordination
-  dReal c[NUM_l][XYZ]; // link CoG position in the world coordination
-
-  a[0][0] = + 0.000; a[0][1] = + 0.000; a[0][2] = + 0.000;
-  a[1][0] = + 0.000; a[1][1] = + 0.090; a[1][2] = + 0.000;
-  a[2][0] = - 0.028; a[2][1] = + 0.144; a[2][2] = + 0.000;
-  a[3][0] = - 0.054; a[3][1] = + 0.144; a[3][2] = - 0.288;  
-
-  c[0][0] = + 0.000; c[0][1] = + 0.000; c[0][2] = + 0.142;  
-  c[1][0] = - 0.028; c[1][1] = + 0.144; c[1][2] = + 0.000;  
-  c[2][0] = - 0.082; c[2][1] = + 0.172; c[2][2] = - 0.144;  
-  c[3][0] = - 0.054; c[3][1] = + 0.144; c[3][2] = - 0.444;  
-
 
   for (int i = 0; i < NUM_l; i++) {
     rlink[i].body  = dBodyCreate( world);
@@ -88,9 +100,11 @@ void  makeRobot() // make the robot
     dBodySetPosition( rlink[i].body, c[i][0], c[i][1], c[i][2] + height_hip);
     //dRFromAxisAndAngle( R, axis_x, axis_y, axis_z, - theta[i] - Pi/2.0);
     if ( i == 1 || i == 4 || i == 7)
-      dRFromAxisAndAngle( R, axis_x_roll, axis_y_roll, axis_z_roll, 0);
+      dRFromAxisAndAngle( R, axis_roll[0], axis_roll[1], axis_roll[2], 0);
+      //dRFromAxisAndAngle( R, axis_x_roll, axis_y_roll, axis_z_roll, 0);
     else
-      dRFromAxisAndAngle( R, axis_x_pitch, axis_y_pitch, axis_z_pitch, 0);
+      dRFromAxisAndAngle( R, axis_pitch[0], axis_pitch[1], axis_pitch[2], 0);
+      //dRFromAxisAndAngle( R, axis_x_pitch, axis_y_pitch, axis_z_pitch, 0);
     dBodySetRotation( rlink[i].body, R);
 
     // mass
@@ -122,14 +136,18 @@ void  makeRobot() // make the robot
   dJointSetFixed( joint[0]);
   for (int j = 1; j < NUM_l; j++) {
     joint[j] = dJointCreateHinge( world, 0); // hinge
-   
-    dJointAttach( joint[j], rlink[j].body, rlink[j - 1].body);
+
+    if ( j == 4 || j == 7)
+      dJointAttach( joint[j], rlink[j].body, rlink[0].body);
+    else
+      dJointAttach( joint[j], rlink[j].body, rlink[j - 1].body);
+
     dJointSetHingeAnchor( joint[j], a[j][0], a[j][1], a[j][2] + height_hip);
     
     if ( j == 1 || j == 4)
-      dJointSetHingeAxis( joint[j], axis_x_roll, axis_y_roll, axis_z_roll);
+      dJointSetHingeAxis( joint[j], axis_roll[0], axis_roll[1], axis_roll[2]);
     else
-      dJointSetHingeAxis( joint[j], axis_x_pitch, axis_y_pitch, axis_z_pitch);
+      dJointSetHingeAxis( joint[j], axis_pitch[0], axis_pitch[1], axis_pitch[2]);
   }
 
 }
@@ -221,21 +239,27 @@ static void simLoop(int pause) // simulation loop
 {
   if (!pause) {
     //STEPS++;
-    getState();
+    if (VIEW != 1)
+      getState();
+    
     AddTorque();
     dSpaceCollide(space,0,&nearCallback);
     dWorldStep(world,0.001);
     dJointGroupEmpty(contactgroup);
     STEPS++;
-    drawRobot(); // draw the robot
+
+    if (VIEW == 1)
+      drawRobot(); // draw the robot
   }
 }
 
 static void start()
 {
-  static float xyz[3] = {  0.0, 1.5, 0.5};
-  static float hpr[3] = {-90.0, 0.0, 0.0};
-  
+  //static float xyz[3] = {  0.0, 1.5, 0.5};
+  //static float hpr[3] = {-90.0, 0.0, 0.0};
+  static float xyz[3] = { 1.0, 1.0, 0.7};
+  static float hpr[3] = {-135, 0.0, 0.0};
+
   dsSetViewpoint( xyz, hpr); // viewpoint, direction setting
   dsSetSphereQuality(3);     // sphere quality setting
 }
@@ -317,15 +341,20 @@ int main (int argc, char *argv[])
   makeRobot();                                // set the robot
 
   // loop
-  dsSimulationLoop ( argc, argv, 640, 480, &fn);
-  //for (int i = 0; i < Num_t; i++) simLoop(0);
+  if ( VIEW == 1)
+    dsSimulationLoop ( argc, argv, 640, 480, &fn);
+  else
+    for (int i = 0; i < Num_t; i++) 
+      simLoop(0);
 
   // termination
   dWorldDestroy (world);
   dCloseODE();
 
-  getFileName();
-  saveData();
+  if ( VIEW != 1){
+    getFileName();
+    saveData();
+  }
 
   return 0;
 }
