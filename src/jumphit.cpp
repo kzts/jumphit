@@ -83,50 +83,47 @@ dReal c[NUM_l][XYZ] = {
   { + 0.021, + 0.138, + 0.426},
   { + 0.021, + 0.184, + 0.284}};
 
+dReal axis_pitch[XYZ] = {0,1,0};
+dReal axis_roll[XYZ]  = {1,0,0};
+dReal height_hip = 1.0;
+
 void  makeRobot() // make the robot
 {
   dMass mass; // mass parameter
   dMatrix3 R;
-  
-  dReal axis_pitch[XYZ] = {0,1,0};
-  dReal axis_roll[XYZ]  = {1,0,0};
-  dReal L_Trunk[3] = { 0.2, 0.2, 0.2};
-  dReal height_hip = 1.0;
 
   for (int i = 0; i < NUM_l; i++) {
     rlink[i].body  = dBodyCreate( world);
 
     // position, posture
     dBodySetPosition( rlink[i].body, c[i][0], c[i][1], c[i][2] + height_hip);
-    //dRFromAxisAndAngle( R, axis_x, axis_y, axis_z, - theta[i] - Pi/2.0);
-    if ( i == 1 || i == 4 || i == 7)
+
+    //dRFromAxisAndAngle( R, axis_x, axis_y, axis_z, - theta[i] - Pi/2.0)
+    if ( i == 0)
+      dRFromAxisAndAngle( R, axis_pitch[0], axis_pitch[1], axis_pitch[2], - Pi/3.0);
+    else if ( i == 1 || i == 4 || i == 7)
       dRFromAxisAndAngle( R, axis_roll[0], axis_roll[1], axis_roll[2], 0);
-      //dRFromAxisAndAngle( R, axis_x_roll, axis_y_roll, axis_z_roll, 0);
     else
       dRFromAxisAndAngle( R, axis_pitch[0], axis_pitch[1], axis_pitch[2], 0);
-      //dRFromAxisAndAngle( R, axis_x_pitch, axis_y_pitch, axis_z_pitch, 0);
     dBodySetRotation( rlink[i].body, R);
 
     // mass
     dMassSetZero( &mass);
     if ( i == 0)
       dMassSetBox ( &mass, weight[i], L_Trunk[0], L_Trunk[1], L_Trunk[2]);
-    else 
-      if ( i == 1 || i == 4 || i == 7)
-	dMassSetSphereTotal(  &mass, weight[i], radius[i]);
-      else
-	dMassSetCapsuleTotal( &mass, weight[i], 3, radius[i], length[i]);
+    else if ( i == 1 || i == 4 || i == 7)
+      dMassSetSphereTotal(  &mass, weight[i], radius[i]);
+    else
+      dMassSetCapsuleTotal( &mass, weight[i], 3, radius[i], length[i]);
     dBodySetMass( rlink[i].body, &mass);
 
     // geometory
-    //rlink[i].geom  = dCreateCapsule( space, r[i], length[i]);
     if ( i == 0)
       rlink[i].geom  = dCreateBox( space, L_Trunk[0], L_Trunk[1], L_Trunk[2]);
-    else 
-      if ( i == 1 || i == 4 || i == 7)
-	rlink[i].geom  = dCreateSphere( space, radius[i]);
-      else
-	rlink[i].geom  = dCreateCapsule( space, radius[i], length[i]);
+    else if ( i == 1 || i == 4 || i == 7)
+      rlink[i].geom  = dCreateSphere( space, radius[i]);
+    else
+      rlink[i].geom  = dCreateCapsule( space, radius[i], length[i]);
     dGeomSetBody( rlink[i].geom, rlink[i].body);
   }
 
@@ -338,7 +335,7 @@ int main (int argc, char *argv[])
   dWorldSetERP( world, 0.9);                // set ERP
   dWorldSetCFM( world, 1e-4);               // set CFM
   ground = dCreatePlane(space, 0, 0, 1, 0); // set ground
-  makeRobot();                                // set the robot
+  makeRobot();                              // set the robot
 
   // loop
   if ( VIEW == 1)
