@@ -35,8 +35,8 @@ typedef struct { // MyObject structure
 
 static int STEPS = 0; // simulation step number
 
-#define  NUM_l 4       // link number
-#define  NUM_j 3       // joint number
+#define  NUM_l 9       // link number
+#define  NUM_j 8       // joint number
 MyObject rlink[NUM_l]; // number
 dJointID joint[NUM_j]; // joint ID number
 
@@ -60,7 +60,7 @@ unsigned int DirName;
 double theta[NUM_l] = { Pi, Pi/6.0, 5.0*Pi/6.0, Pi/6.0}; 
 //double phi[NUM_l];
 
-void  makeLeg() // make the leg
+void  makeRobot() // make the robot
 {
   dMass mass; // mass parameter
   dMatrix3 R;
@@ -116,7 +116,7 @@ void  makeLeg() // make the leg
 }
 
 
-void drawLeg() // draw leg
+void drawRobot() // draw the robot
 {
   dReal r,length;
   for (int i = 0; i < NUM_l; i++ ) { // draw capsule
@@ -155,7 +155,7 @@ static void nearCallback(void *data, dGeomID o1, dGeomID o2) // collison detecti
   }
 }
 
-void destroyLeg() // destroy the leg
+void destroyRobot() // destroy the robot
 {
   for (int i = 0; i < NUM_l; i++) {
     //dJointDestroy(joint[i]);     // destroy joint 
@@ -192,10 +192,10 @@ void getState(){
 //static void restart() // simulation restart
 //{
 //STEPS    = 0;                        // initialize step number
-//destroyLeg();                        // destroy the leg
+//destroyRobot();                        // destroy the robot
 //dJointGroupDestroy(contactgroup);    // destroy joint group
 //contactgroup = dJointGroupCreate(0); // create joint group
-//makeLeg();                           // make the leg
+//makeRobot();                           // make the robot
 //}
 
 static void simLoop(int pause) // simulation loop
@@ -208,7 +208,7 @@ static void simLoop(int pause) // simulation loop
     dWorldStep(world,0.001);
     dJointGroupEmpty(contactgroup);
     STEPS++;
-    //drawLeg(); // draw the leg
+    //drawRobot(); // draw the robot
   }
 }
 
@@ -295,12 +295,12 @@ int main (int argc, char *argv[])
   dWorldSetERP( world, 0.9);                // set ERP
   dWorldSetCFM( world, 1e-4);               // set CFM
   ground = dCreatePlane(space, 0, 0, 1, 0); // set ground
-  makeLeg();                                // set the leg
+  makeRobot();                                // set the robot
 
   // loop
-  //dsSimulationLoop (argc, argv, 640, 480, &fn);
-  for (int i = 0; i < Num_t; i++) 
-    simLoop(0);
+  dsSimulationLoop (argc, argv, 640, 480, &fn);
+  //for (int i = 0; i < Num_t; i++) 
+  //simLoop(0);
 
   // termination
   dWorldDestroy (world);
