@@ -32,6 +32,7 @@ using namespace std;
 
 #define XYZ 3
 #define Num_t 1000
+#define Pi 3.14159
 
 dWorldID world;             // dynamic simulation world
 dSpaceID space;             // contact dection space
@@ -63,8 +64,6 @@ MyObject rlink[NUM_l]; // number
 dJointID joint[NUM_l]; // joint ID number
 RobotLink uLINK[NUM_l];
 
-dReal Pi = 3.14159;
-
 double Pos_link_data [Num_t][NUM_l][XYZ];
 double Pos_joint_data[Num_t][NUM_l][XYZ];
 double Angle_data[Num_t][NUM_l];
@@ -76,6 +75,8 @@ dReal jointTorque[NUM_l];
 unsigned int DirName;
 
 dReal radius = 0.02;
+//dReal height = 0.5;
+dReal height = 0.0;
 
 int readRobot()
 {
@@ -132,7 +133,7 @@ void  makeRobot() // make the robot
     rlink[i].body  = dBodyCreate( world);
 
     // position, posture
-    dBodySetPosition( rlink[i].body, uLINK[i].p_c[0], uLINK[i].p_c[1], uLINK[i].p_c[2]);
+    dBodySetPosition( rlink[i].body, uLINK[i].p_c[0], uLINK[i].p_c[1], uLINK[i].p_c[2] + height);
 
     for (int n = 0; n < XYZ; n++) 
       for (int m = 0; m < XYZ; m++) 
@@ -160,13 +161,19 @@ void  makeRobot() // make the robot
   }
 
   // joint
-  for (int j = 0; j < NUM_l; j++) {
+  //joint[0] = dJointCreateFixed( world, 0); // fixed base trunke
+  //dJointAttach( joint[0], rlink[0].body, 0);
+  //dJointSetFixed( joint[0]);
+
+  //for (int j = 0; j < NUM_l; j++) {
+  for (int j = 1; j < NUM_l; j++) {
     int m = uLINK[j].num_mother;
     
     joint[j] = dJointCreateHinge( world, 0); // hinge
     
     dJointAttach( joint[j], rlink[j].body, rlink[m].body);
-    dJointSetHingeAnchor( joint[j], uLINK[j].p_j[0], uLINK[j].p_j[1], uLINK[j].p_j[2]);
+    //dJointSetHingeAnchor( joint[j], uLINK[j].p_j[0], uLINK[j].p_j[1], uLINK[j].p_j[2]);
+    dJointSetHingeAnchor( joint[j], uLINK[j].p_j[0], uLINK[j].p_j[1], uLINK[j].p_j[2] + height);
     dJointSetHingeAxis( joint[j], uLINK[j].a[0], uLINK[j].a[1], uLINK[j].a[2]);
   }
 }
@@ -213,17 +220,21 @@ static void nearCallback(void *data, dGeomID o1, dGeomID o2) // collison detecti
 
 void destroyRobot() // destroy the robot
 {
-  for (int i = 0; i < NUM_l; i++) {
-    dJointDestroy(joint[i]);     // destroy joint 
-    dBodyDestroy(rlink[i].body); // destroy body
-    dGeomDestroy(rlink[i].geom); // destroy geometory
+  dBodyDestroy( rlink[0].body); // destroy body
+  dGeomDestroy( rlink[0].geom); // destroy geometory
+
+  for (int i = 1; i < NUM_l; i++) {
+    dJointDestroy( joint[i]);     // destroy joint 
+    dBodyDestroy( rlink[i].body); // destroy body
+    dGeomDestroy( rlink[i].geom); // destroy geometory
   }
 }
 
 void AddTorque()
 {
-  for (int i = 1; i < NUM_l; i++)
-    dJointAddHingeTorque( joint[i], jointTorque[i]);
+  if (STEPS < 50)
+    for (int i = 1; i < NUM_l; i++)
+      dJointAddHingeTorque( joint[i], jointTorque[i]);
 }
 
 void getState(){
@@ -333,8 +344,8 @@ void saveData(){
 int main (int argc, char *argv[])
 {
   // variables for filaneme
-  if ( argc != (NUM_l + 1)){
-    printf("error: input 9 values!: eight joint torque and directory name\n");
+  if ( argc != (NUM_l + 2)){
+    printf("error: input ten values!: nine joint torque and directory name\n");
     return 0;
   }
   for(int i=0; i < NUM_l; i++)
