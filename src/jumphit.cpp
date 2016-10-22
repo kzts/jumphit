@@ -4,6 +4,7 @@
 #include "texturepath.h"
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <time.h>
 #include <sys/time.h>
 
@@ -22,6 +23,10 @@ using namespace std;
 
 #define VIEW 1
 
+#define N_Box 0
+#define N_Sphere 1
+#define N_Cylinder 2
+
 dWorldID world;             // dynamic simulation world
 dSpaceID space;             // contact dection space
 dGeomID  ground;            // ground
@@ -34,11 +39,25 @@ typedef struct { // MyObject structure
   double  l,r,m; // length [m], radius [m], weight [kg]
 } MyObject;
 
+typedef struct { 
+  int num_link; 
+  int num_mother; 
+  int num_shape;
+  dReal m;
+  dReal l[3];
+  dReal p_j[3]; 
+  dReal p_c[3]; 
+  double  R[3][3];
+} RobotLink;
+
 static int STEPS = 0; // simulation step number
 
+
 #define  NUM_l 9       // link number
+#define  NUM_p 22      // parameter number
 MyObject rlink[NUM_l]; // number
 dJointID joint[NUM_l]; // joint ID number
+RobotLink uLINK[NUM_l];
 
 dReal Pi = 3.14159;
 
@@ -86,6 +105,49 @@ dReal c[NUM_l][XYZ] = {
 dReal axis_pitch[XYZ] = {0,1,0};
 dReal axis_roll[XYZ]  = {1,0,0};
 dReal height_hip = 1.0;
+
+int readRobot()
+{
+  ifstream ifs("/home/isi/tanaka/MATLAB/Data/jumpHitODE/InitialPosture.dat");
+  string str, str2;
+
+  if ( ifs.fail()){
+    cerr << "data import failed." << endl;
+    return -1;
+  }
+
+  for (int i = 0; i < NUM_l; i++) {
+    getline( ifs, str);
+
+    sscanf( str.data(), "%d %d %d %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+	    &(uLINK[i].num_link), &(uLINK[i].num_mother), &(uLINK[i].num_shape), &(uLINK[i].m),  
+	    &(uLINK[i].l[0]),    &(uLINK[i].l[1]),    &(uLINK[i].l[2]), 
+	    &(uLINK[i].p_j[0]),  &(uLINK[i].p_j[1]),  &(uLINK[i].p_j[2]), 
+	    &(uLINK[i].p_c[0]),  &(uLINK[i].p_c[1]),  &(uLINK[i].p_c[2]), 
+	    &(uLINK[i].R[0][0]), &(uLINK[i].R[1][0]), &(uLINK[i].R[2][0]),  
+	    &(uLINK[i].R[0][1]), &(uLINK[i].R[1][1]), &(uLINK[i].R[2][1]), 
+	    &(uLINK[i].R[0][2]), &(uLINK[i].R[1][2]), &(uLINK[i].R[2][2]));
+
+    //cout << "[" << str << "]" << endl;
+  }
+
+  for (int i = 0; i < NUM_l; i++) {
+    cout << "#" << uLINK[i].num_link << ", mother: " << uLINK[i].num_mother 
+	 << ", #shape: " << uLINK[i].num_shape << endl;
+    cout << "joint position:( " 
+	 << uLINK[i].p_j[0] << ", "<< uLINK[i].p_j[1] << ", "<< uLINK[i].p_j[2] << ")" << endl;
+    cout << "CoM position:( " 
+	 << uLINK[i].p_c[0] << ", "<< uLINK[i].p_c[1] << ", "<< uLINK[i].p_c[2] << ")" << endl;
+    cout << "R: " << endl;
+    cout << "(" << uLINK[i].R[0][0] << ", " << uLINK[i].R[0][1] << ", "<< uLINK[i].R[0][2] << ")" << endl;   
+    cout << "(" << uLINK[i].R[1][0] << ", " << uLINK[i].R[1][1] << ", "<< uLINK[i].R[1][2] << ")" << endl;   
+    cout << "(" << uLINK[i].R[2][0] << ", " << uLINK[i].R[2][1] << ", "<< uLINK[i].R[2][2] << ")" << endl;
+    cout << endl;
+  }
+
+
+  return 1;
+}
 
 void  makeRobot() // make the robot
 {
@@ -335,6 +397,7 @@ int main (int argc, char *argv[])
   dWorldSetERP( world, 0.9);                // set ERP
   dWorldSetCFM( world, 1e-4);               // set CFM
   ground = dCreatePlane(space, 0, 0, 1, 0); // set ground
+  readRobot();                              // set the robot
   makeRobot();                              // set the robot
 
   // loop
