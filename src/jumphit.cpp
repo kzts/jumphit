@@ -45,6 +45,7 @@ typedef struct {
   int num_shape;
   dReal m;
   dReal l[3];
+  dReal a[3];
   dReal p_j[3]; 
   dReal p_c[3]; 
   double  R[3][3];
@@ -54,7 +55,7 @@ static int STEPS = 0; // simulation step number
 
 
 #define  NUM_l 9       // link number
-#define  NUM_p 22      // parameter number
+#define  NUM_p 25      // parameter number
 MyObject rlink[NUM_l]; // number
 dJointID joint[NUM_l]; // joint ID number
 RobotLink uLINK[NUM_l];
@@ -73,10 +74,12 @@ char filename_m[999];
 dReal jointTorque[NUM_l];
 unsigned int DirName;
 
-dReal L_Trunk[XYZ]  = { 0.15, 0.2, 0.426};
-dReal radius[NUM_l] = { 0.10,  0.01, 0.02, 0.02,  0.01, 0.02, 0.02,  0.01, 0.02};
-dReal length[NUM_l] = { 0.30,  0.01, 0.28, 0.30,  0.01, 0.28, 0.30,  0.01, 0.28};
-dReal weight[NUM_l] = { 5.00,  0.05, 0.60, 0.60,  0.05, 0.60, 0.60,  0.05, 0.40};
+dReal radius = 0.02;
+
+//dReal L_Trunk[XYZ]  = { 0.15, 0.2, 0.426};
+//dReal radius[NUM_l] = { 0.10,  0.01, 0.02, 0.02,  0.01, 0.02, 0.02,  0.01, 0.02};
+//dReal length[NUM_l] = { 0.30,  0.01, 0.28, 0.30,  0.01, 0.28, 0.30,  0.01, 0.28};
+//dReal weight[NUM_l] = { 5.00,  0.05, 0.60, 0.60,  0.05, 0.60, 0.60,  0.05, 0.40};
 
 // axis position in the world coordination
 dReal a[NUM_l][XYZ] = { 
@@ -119,8 +122,10 @@ int readRobot()
   for (int i = 0; i < NUM_l; i++) {
     getline( ifs, str);
 
-    sscanf( str.data(), "%d %d %d %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+    sscanf( str.data(), 
+	    "%d %d %d %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
 	    &(uLINK[i].num_link), &(uLINK[i].num_mother), &(uLINK[i].num_shape), &(uLINK[i].m),  
+	    &(uLINK[i].a[0]),    &(uLINK[i].a[1]),    &(uLINK[i].a[2]), 
 	    &(uLINK[i].l[0]),    &(uLINK[i].l[1]),    &(uLINK[i].l[2]), 
 	    &(uLINK[i].p_j[0]),  &(uLINK[i].p_j[1]),  &(uLINK[i].p_j[2]), 
 	    &(uLINK[i].p_c[0]),  &(uLINK[i].p_c[1]),  &(uLINK[i].p_c[2]), 
@@ -138,6 +143,8 @@ int readRobot()
 	 << uLINK[i].p_j[0] << ", "<< uLINK[i].p_j[1] << ", "<< uLINK[i].p_j[2] << ")" << endl;
     cout << "CoM position:( " 
 	 << uLINK[i].p_c[0] << ", "<< uLINK[i].p_c[1] << ", "<< uLINK[i].p_c[2] << ")" << endl;
+    cout << "Axis vector:( " 
+	 << uLINK[i].a[0] << ", "<< uLINK[i].a[1] << ", "<< uLINK[i].a[2] << ")" << endl;
     cout << "R: " << endl;
     cout << "(" << uLINK[i].R[0][0] << ", " << uLINK[i].R[0][1] << ", "<< uLINK[i].R[0][2] << ")" << endl;   
     cout << "(" << uLINK[i].R[1][0] << ", " << uLINK[i].R[1][1] << ", "<< uLINK[i].R[1][2] << ")" << endl;   
@@ -149,6 +156,81 @@ int readRobot()
   return 1;
 }
 
+void  makeRobot() // make the robot
+{
+  dMass mass; // mass parameter
+  dMatrix3 R;
+
+  for (int i = 0; i < NUM_l; i++) {
+    rlink[i].body  = dBodyCreate( world);
+
+    // position, posture
+    dBodySetPosition( rlink[i].body, uLINK[i].p_c[0], uLINK[i].p_c[1], uLINK[i].p_c[2]);
+
+    //if ( i == 0) 
+    //dBodySetPosition( rlink[i].body, uLINK[i].p_c[0], uLINK[i].p_c[1], uLINK[i].p_c[2] + 1.0);
+
+    for (int n = 0; n < XYZ; n++) 
+      for (int m = 0; m < XYZ; m++) 
+	R[ (XYZ + 1)*n + m] = dReal( uLINK[i].R[n][m]);
+    //R[ XYZ*n + m] = dReal( uLINK[i].R[n][m]);
+    
+    //R[ 0] = 1; R[ 1] = 1; R[ 2] = 1; 
+    //R[ 3] = 0; R[ 4] = 0; R[ 5] = 0; 
+    //R[ 6] = 0; R[ 7] = 0; R[ 8] = 0; 
+    //dRFromAxisAndAngle( R, 0, 1, 0, 0);
+    dBodySetRotation( rlink[i].body, R);
+    /*
+    cout << i 
+	 << " " << R[0] << " " << R[1] << " " << R[2] 
+	 << " " << R[3] << " " << R[4] << " " << R[5] 
+	 << " " << R[6] << " " << R[7] << " " << R[8] << endl;
+    */
+
+    // mass
+    dMassSetZero( &mass);
+    if ( uLINK[i].num_shape == N_Box)
+      dMassSetBox ( &mass, uLINK[i].m, uLINK[i].l[0], uLINK[i].l[1], uLINK[i].l[2]);
+    else if ( uLINK[i].num_shape == N_Sphere)
+      dMassSetSphereTotal(  &mass, uLINK[i].m, radius);
+      //dMassSetSphereTotal(  &mass, uLINK[i].m, uLINK[i].l[0]);
+    else
+      dMassSetCapsuleTotal( &mass, uLINK[i].m, 3, radius, uLINK[i].l[2]);
+      //dMassSetCapsuleTotal( &mass, uLINK[i].m, 3, uLINK[i].l[1], uLINK[i].l[2]);
+    dBodySetMass( rlink[i].body, &mass);
+
+    // geometory
+    if ( uLINK[i].num_shape == N_Box)
+      rlink[i].geom  = dCreateBox( space, uLINK[i].l[0], uLINK[i].l[1], uLINK[i].l[2]);
+    else if ( uLINK[i].num_shape == N_Sphere)
+      rlink[i].geom  = dCreateSphere( space, uLINK[i].l[0]);
+    else
+      rlink[i].geom  = dCreateCapsule( space, radius, uLINK[i].l[2]);
+      //rlink[i].geom  = dCreateCapsule( space, uLINK[i].l[0], uLINK[i].l[2]);
+    dGeomSetBody( rlink[i].geom, rlink[i].body);
+  }
+
+  // joint
+  //joint[0] = dJointCreateFixed( world, 0); // fixed base trunke
+  //dJointAttach( joint[0], rlink[0].body, 0);
+  //dJointSetFixed( joint[0]);
+  //for (int j = 1; j < NUM_l; j++) {
+  for (int j = 0; j < NUM_l; j++) {
+    int m = uLINK[j].num_mother;
+    
+    joint[j] = dJointCreateHinge( world, 0); // hinge
+    
+    dJointAttach( joint[j], rlink[j].body, rlink[m].body);
+    dJointSetHingeAnchor( joint[j], uLINK[j].p_j[0], uLINK[j].p_j[1], uLINK[j].p_j[2]);
+    dJointSetHingeAxis( joint[j], uLINK[j].a[0], uLINK[j].a[1], uLINK[j].a[2]);
+    //joint[j] = dJointCreateFixed( world, 0); // fixed base trunke
+    //dJointAttach( joint[j], rlink[j].body, 0);
+    //dJointSetFixed( joint[j]);  
+  }
+
+}
+
+ /*
 void  makeRobot() // make the robot
 {
   dMass mass; // mass parameter
@@ -208,19 +290,28 @@ void  makeRobot() // make the robot
     else
       dJointSetHingeAxis( joint[j], axis_pitch[0], axis_pitch[1], axis_pitch[2]);
   }
-
 }
-
+*/
 
 void drawRobot() // draw the robot
 {
   for (int i = 0; i < NUM_l; i++ ) // draw capsule
+    if ( uLINK[i].num_shape == N_Box)
+      dsDrawBox( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), uLINK[i].l);
+    else if ( uLINK[i].num_shape == N_Sphere)
+      dsDrawSphere( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), radius);
+      //dsDrawSphere( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), uLINK[i].l[0]);
+    else
+      dsDrawCapsule( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), uLINK[i].l[2], radius);
+      //dsDrawCapsule( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), uLINK[i].l[2], uLINK[i].l[1]);
+    /*
     if ( i == 0)
       dsDrawBox( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), L_Trunk);
     else if ( i == 1 || i == 4 || i == 7)
       dsDrawSphere( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), radius[i]);
     else
       dsDrawCapsule( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), length[i], radius[i]);
+    */
 }
 
 
