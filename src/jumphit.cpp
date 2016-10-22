@@ -21,7 +21,8 @@ using namespace std;
 #define dsDrawCapsule  dsDrawCapsuleD
 #endif
 
-#define VIEW 1
+//#define VIEW 1
+#define VIEW 0
 
 #define N_Box 0
 #define N_Sphere 1
@@ -29,10 +30,15 @@ using namespace std;
 
 #define  NUM_l 9       // link number
 #define  NUM_p 27      // parameter number
+#define  NUM_c 2       // chambers number in one cylinder
 
 #define XYZ 3
+//#define Num_t 1000
 #define Num_t 1000
 #define Pi 3.14159
+
+//#define TIMESTEP 0.001
+#define TIMESTEP 1e-4
 
 dWorldID world;             // dynamic simulation world
 dSpaceID space;             // contact dection space
@@ -51,26 +57,42 @@ typedef struct {
   int num_mother; 
   int num_shape;
   dReal m;
-  dReal l[3];
-  dReal a[3];
-  dReal p_j[3]; 
-  dReal p_c[3]; 
-  double  R[3][3];
+  dReal l[XYZ];
+  dReal a[XYZ];
+  dReal p_j[XYZ]; 
+  dReal p_c[XYZ]; 
+  double  R[XYZ][XYZ];
   double RoM[2];
+  double D;
+  double Q;
+  double dot_Q;
+  double Q_old;
+  double L_stk;
+  double L_MA;
 } RobotLink;
+
+typedef struct { 
+  double V;
+  double dot_V;
+  double prs;
+  double prsTar;
+} CylinderChamber;
 
 static int STEPS = 0; // simulation step number
 
 MyObject rlink[NUM_l]; // number
 dJointID joint[NUM_l]; // joint ID number
 RobotLink uLINK[NUM_l];
+CylinderChamber Chamber[NUM_l][NUM_c];
 
 double Pos_link_data [Num_t][NUM_l][XYZ];
 double Pos_joint_data[Num_t][NUM_l][XYZ];
 double Angle_data[Num_t][NUM_l];
+double Prs_data [Num_t][NUM_l][NUM_c];
 
 char filename_o[999];
 char filename_m[999];
+char filename_p[999];
 
 dReal jointTorque[NUM_l];
 unsigned int DirName;
@@ -79,7 +101,99 @@ dReal radius = 0.02;
 //dReal height = 0.5;
 dReal height = 0.0;
 
-int readRobot()
+#define k_air 1.4
+#define R_air 8.3
+#define T_air 300
+
+#define S_ori 8e-4
+#define L_mgn 2e-2
+#define Prs_room 1e+5
+
+double getMassFlowRate( double prsU, double prsD){
+  double dot_m;
+
+  if ( prsU/ prsD > pow( 2.0/ (k_air + 1), k_air/( k_air - 1.0)))
+    dot_m = ( S_ori/ sqrt( T_air))* sqrt(( 2.0* k_air)/(( k_air - 1.0)* R_air))* prsU* sqrt( pow( prsU/ prsD, 2.0/k_air) - pow( prsU/ prsD, (k_air - 1.0)/ k_air));
+  else 
+    dot_m = ( S_ori/ sqrt( T_air))* sqrt(( 2.0* k_air)/(( k_air + 1.0)* R_air))* prsU;
+  return dot_m; 
+}
+
+double getDotPressure( double prsNow, double dot_m, double V, double dot_V)
+{
+  return k_air* R_air* T_air* dot_m / V - k_air* prsNow* dot_V/ V;
+}
+
+void updateChamberAll()
+{
+  double L_cmb[NUM_c], dot_L_cmb[NUM_c];
+  double L_tmp, dot_L_tmp;
+
+  for (int i = 1; i < NUM_l; i++){
+    L_tmp    = uLINK[i].L_MA*( uLINK[i].Q - uLINK[i].RoM[0]);
+
+    L_cmb[0] = L_tmp + L_mgn;
+    L_cmb[1] = (uLINK[i].L_stk - L_tmp) + L_mgn;
+
+    Chamber[i][0].V = L_cmb[0]* uLINK[i].D;
+    Chamber[i][1].V = L_cmb[1]* uLINK[i].D;
+  }
+  for (int i = 1; i < NUM_l; i++){
+    dot_L_tmp           = uLINK[i].L_MA* uLINK[i].dot_Q;
+    dot_L_cmb[0]        = + dot_L_tmp;
+    dot_L_cmb[1]        = - dot_L_tmp;
+    Chamber[i][0].dot_V = dot_L_cmb[0]* uLINK[i].D;
+    Chamber[i][1].dot_V = dot_L_cmb[1]* uLINK[i].D;
+  }
+}
+
+void updateAngularVelocityAll()
+{
+  for (int i = 1; i < NUM_l; i++)
+    if (STEPS == 0)
+      uLINK[i].dot_Q = 0;
+    else
+      uLINK[i].dot_Q = (1.0/ TIMESTEP)*( uLINK[i].Q - uLINK[i].Q_old);
+}
+
+void updateAngleAll()
+{
+  for (int i = 1; i < NUM_l; i++){
+    uLINK[i].Q_old = uLINK[i].Q;
+    uLINK[i].Q     = dJointGetHingeAngle( joint[i]);
+  }
+}
+
+void updatePressureAll()
+{
+  double prsU, prsD;
+
+  updateAngleAll();
+  updateAngularVelocityAll();
+  updateChamberAll();
+
+  for (int i = 1; i < NUM_l; i++){
+    for (int s = 0; s < 2; s++){
+      if ( Chamber[i][s].prsTar > Chamber[i][s].prs){
+	prsU = Chamber[i][s].prsTar;
+	prsD = Chamber[i][s].prs;
+      }else{
+	prsU = Chamber[i][s].prs;
+	prsD = Chamber[i][s].prsTar;
+      }
+      double dot_m      = getMassFlowRate( prsU, prsD); 
+      double dot_Prs    = getDotPressure( Chamber[i][s].prs, dot_m, Chamber[i][s].V, Chamber[i][s].dot_V);
+      Chamber[i][s].prs = Chamber[i][s].prs + TIMESTEP* dot_Prs;
+    
+      if ( Chamber[i][s].prs < Prs_room)
+	Chamber[i][s].prs = Prs_room;
+      if ( Chamber[i][s].prs > Chamber[i][s].prsTar)
+	Chamber[i][s].prs = Chamber[i][s].prsTar;
+    }
+  }
+}
+
+void readRobot()
 {
   ifstream ifs("/home/isi/tanaka/MATLAB/Data/jumpHitODE/InitialPosture.dat");
   //  string str, str2;
@@ -87,42 +201,67 @@ int readRobot()
 
   if ( ifs.fail()){
     cerr << "data import failed." << endl;
-    return -1;
+  }else{
+    for (int i = 0; i < NUM_l; i++) {
+      getline( ifs, str);
+      sscanf( str.data(), "%d %d %d %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+	      &(uLINK[i].num_link), &(uLINK[i].num_mother), &(uLINK[i].num_shape), &(uLINK[i].m),  
+	      &(uLINK[i].a[0]),    &(uLINK[i].a[1]),    &(uLINK[i].a[2]), 
+	      &(uLINK[i].l[0]),    &(uLINK[i].l[1]),    &(uLINK[i].l[2]), 
+	      &(uLINK[i].p_j[0]),  &(uLINK[i].p_j[1]),  &(uLINK[i].p_j[2]), 
+	      &(uLINK[i].p_c[0]),  &(uLINK[i].p_c[1]),  &(uLINK[i].p_c[2]), 
+	      &(uLINK[i].R[0][0]), &(uLINK[i].R[1][0]), &(uLINK[i].R[2][0]),  
+	      &(uLINK[i].R[0][1]), &(uLINK[i].R[1][1]), &(uLINK[i].R[2][1]), 
+	      &(uLINK[i].R[0][2]), &(uLINK[i].R[1][2]), &(uLINK[i].R[2][2]),
+	      &(uLINK[i].RoM[0]),  &(uLINK[i].RoM[1]));
+      //cout << "[" << str << "]" << endl;
+    }
+    // out to terminal 
+    if (VIEW > 0)    
+      for (int i = 0; i < NUM_l; i++) {
+	cout << "#" << uLINK[i].num_link << ", mother: " << uLINK[i].num_mother 
+	     << ", #shape: " << uLINK[i].num_shape << endl;
+	cout << "joint position:( " 
+	     << uLINK[i].p_j[0] << ", "<< uLINK[i].p_j[1] << ", "<< uLINK[i].p_j[2] << ")" << endl;
+	cout << "CoM position:( " 
+	     << uLINK[i].p_c[0] << ", "<< uLINK[i].p_c[1] << ", "<< uLINK[i].p_c[2] << ")" << endl;
+	cout << "Axis vector:( " 
+	     << uLINK[i].a[0] << ", "<< uLINK[i].a[1] << ", "<< uLINK[i].a[2] << ")" << endl;
+	cout << "R: " << endl;
+	cout << "(" << uLINK[i].R[0][0] << ", " << uLINK[i].R[0][1] << ", "<< uLINK[i].R[0][2] << ")" << endl;   
+	cout << "(" << uLINK[i].R[1][0] << ", " << uLINK[i].R[1][1] << ", "<< uLINK[i].R[1][2] << ")" << endl;   
+	cout << "(" << uLINK[i].R[2][0] << ", " << uLINK[i].R[2][1] << ", "<< uLINK[i].R[2][2] << ")" << endl;
+	cout << endl;
+      }
+    
+    // set diameter
+    for (int i = 0; i < NUM_l; i++)    
+      uLINK[i].D = 40e-3;
+    uLINK[8].D = 32e-3;
+    uLINK[9].D = 25e-3;
+    
+    // set moment arm
+    for (int i = 0; i < NUM_l; i++)    
+      uLINK[i].L_MA = 50e-3;
+    uLINK[8].L_MA = 20e-3;
+    uLINK[9].L_MA = 20e-3;
+    
+    // set piston stroke
+    for (int i = 0; i < NUM_l; i++)    
+      uLINK[i].L_stk = uLINK[i].L_MA*( uLINK[i].RoM[1] - uLINK[i].RoM[0]);
+
+    // target pressure (temporary)
+    for (int i = 0; i < NUM_l; i++)    
+      for (int s = 0; s < 2; s++)    
+	Chamber[i][s].prs = Prs_room;
+
+    for (int i = 0; i < NUM_l; i++)    
+      for (int s = 0; s < 2; s++)    
+	Chamber[i][s].prsTar = Prs_room;
+
+    Chamber[1][0].prsTar = 2.0* Prs_room;
+
   }
-
-  for (int i = 0; i < NUM_l; i++) {
-    getline( ifs, str);
-    sscanf( str.data(), "%d %d %d %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
-	    &(uLINK[i].num_link), &(uLINK[i].num_mother), &(uLINK[i].num_shape), &(uLINK[i].m),  
-	    &(uLINK[i].a[0]),    &(uLINK[i].a[1]),    &(uLINK[i].a[2]), 
-	    &(uLINK[i].l[0]),    &(uLINK[i].l[1]),    &(uLINK[i].l[2]), 
-	    &(uLINK[i].p_j[0]),  &(uLINK[i].p_j[1]),  &(uLINK[i].p_j[2]), 
-	    &(uLINK[i].p_c[0]),  &(uLINK[i].p_c[1]),  &(uLINK[i].p_c[2]), 
-	    &(uLINK[i].R[0][0]), &(uLINK[i].R[1][0]), &(uLINK[i].R[2][0]),  
-	    &(uLINK[i].R[0][1]), &(uLINK[i].R[1][1]), &(uLINK[i].R[2][1]), 
-	    &(uLINK[i].R[0][2]), &(uLINK[i].R[1][2]), &(uLINK[i].R[2][2]),
-	    &(uLINK[i].RoM[0]),  &(uLINK[i].RoM[1]));
-    //cout << "[" << str << "]" << endl;
-  }
-
-  for (int i = 0; i < NUM_l; i++) {
-    cout << "#" << uLINK[i].num_link << ", mother: " << uLINK[i].num_mother 
-	 << ", #shape: " << uLINK[i].num_shape << endl;
-    cout << "joint position:( " 
-	 << uLINK[i].p_j[0] << ", "<< uLINK[i].p_j[1] << ", "<< uLINK[i].p_j[2] << ")" << endl;
-    cout << "CoM position:( " 
-	 << uLINK[i].p_c[0] << ", "<< uLINK[i].p_c[1] << ", "<< uLINK[i].p_c[2] << ")" << endl;
-    cout << "Axis vector:( " 
-	 << uLINK[i].a[0] << ", "<< uLINK[i].a[1] << ", "<< uLINK[i].a[2] << ")" << endl;
-    cout << "R: " << endl;
-    cout << "(" << uLINK[i].R[0][0] << ", " << uLINK[i].R[0][1] << ", "<< uLINK[i].R[0][2] << ")" << endl;   
-    cout << "(" << uLINK[i].R[1][0] << ", " << uLINK[i].R[1][1] << ", "<< uLINK[i].R[1][2] << ")" << endl;   
-    cout << "(" << uLINK[i].R[2][0] << ", " << uLINK[i].R[2][1] << ", "<< uLINK[i].R[2][2] << ")" << endl;
-    cout << endl;
-  }
-
-
-  return 1;
 }
 
 void  makeRobot() // make the robot
@@ -240,9 +379,12 @@ void destroyRobot() // destroy the robot
 
 void AddTorque()
 {
+  for (int i = 1; i < NUM_l; i++)
+    jointTorque[i] = uLINK[i].D*( Chamber[i][1].prs - Chamber[i][0].prs);
+ 
   //  if (STEPS < 50)
-    for (int i = 1; i < NUM_l; i++)
-      dJointAddHingeTorque( joint[i], jointTorque[i]);
+  for (int i = 1; i < NUM_l; i++)
+    dJointAddHingeTorque( joint[i], jointTorque[i]);
 }
 
 void getState(){
@@ -258,7 +400,11 @@ void getState(){
     dJointGetHingeAnchor( joint[i], res);
     for (int d = 0; d < XYZ; d++)
       Pos_joint_data[STEPS][i][d] = res[d];
+      //Pos_joint_data[STEPS][i][d] = dJointGetHingeAngle( joint[i]);
   }
+  for (int i = 0; i < NUM_l; i++)
+    for (int d = 0; d < NUM_c; d++)
+      Prs_data[STEPS][i][d] = Chamber[i][d].prs;
 }
 
 //static void restart() // simulation restart
@@ -276,9 +422,10 @@ static void simLoop(int pause) // simulation loop
     if (VIEW != 1)
       getState();
     
+    updatePressureAll();
     AddTorque();
     dSpaceCollide(space,0,&nearCallback);
-    dWorldStep(world,0.001);
+    dWorldStep( world, TIMESTEP);
     dJointGroupEmpty(contactgroup);
     STEPS++;
 
@@ -320,9 +467,11 @@ void getFileName(){
   int second = pnow->tm_sec;
   int usec   = now.tv_usec;
   
-  sprintf( filename_o, "../data/%04d%02d%02d/%06d/jump_o_%02d_%02d_%02d_%06d_jump.dat", 
+  sprintf( filename_o, "../data/%04d%02d%02d/%06d/jump_o_%02d%02d_%02d%06d.dat", 
 	   year, month, day, DirName, hour, minute, second, usec);
-  sprintf( filename_m, "../data/%04d%02d%02d/%06d/jump_m_%02d_%02d_%02d_%06d_jump.dat", 
+  sprintf( filename_m, "../data/%04d%02d%02d/%06d/jump_m_%02d%02d_%02d%06d.dat", 
+	   year, month, day, DirName, hour, minute, second, usec);
+  sprintf( filename_p, "../data/%04d%02d%02d/%06d/jump_p_%02d%02d_%02d%06d.dat", 
 	   year, month, day, DirName, hour, minute, second, usec);
   //cout << filename_o << endl;
 }
@@ -330,6 +479,7 @@ void getFileName(){
 void saveData(){
   ofstream fout_m( filename_m, ios::out);	
   ofstream fout_o( filename_o, ios::out);	
+  ofstream fout_p( filename_p, ios::out);	
   
   for(int t=0; t < Num_t; t++){
     fout_m << t << "\t";
@@ -345,12 +495,22 @@ void saveData(){
     fout_o << jointTorque[i] << "\t";
   fout_o << endl;
 
+  for(int t=0; t < Num_t; t++){
+    fout_p << t << "\t";
+    for(int i=0; i < NUM_l; i++)
+      for(int d=0; d < NUM_c; d++)
+	fout_p << Prs_data[t][i][d] << "\t";
+    fout_p << endl;
+  }
+
   fout_m.close();
   fout_o.close();
+  fout_p.close();
 }
 
 int main (int argc, char *argv[])
 {
+  
   // variables for filaneme
   if ( argc != (NUM_l + 2)){
     printf("error: input ten values!: nine joint torque and directory name\n");
@@ -358,7 +518,8 @@ int main (int argc, char *argv[])
   }
   for(int i=0; i < NUM_l; i++)
     jointTorque[i] = atof(argv[i + 1]);
-  DirName = atoi( argv[ NUM_l]);
+  DirName = atoi( argv[ NUM_l + 1]);
+  //cout << DirName << endl;
 
   // initiation
   dInitODE();
