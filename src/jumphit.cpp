@@ -28,7 +28,7 @@ using namespace std;
 #define N_Cylinder 2
 
 #define  NUM_l 9       // link number
-#define  NUM_p 25      // parameter number
+#define  NUM_p 27      // parameter number
 
 #define XYZ 3
 #define Num_t 1000
@@ -56,6 +56,7 @@ typedef struct {
   dReal p_j[3]; 
   dReal p_c[3]; 
   double  R[3][3];
+  double RoM[2];
 } RobotLink;
 
 static int STEPS = 0; // simulation step number
@@ -91,8 +92,7 @@ int readRobot()
 
   for (int i = 0; i < NUM_l; i++) {
     getline( ifs, str);
-    sscanf( str.data(), 
-	    "%d %d %d %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+    sscanf( str.data(), "%d %d %d %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
 	    &(uLINK[i].num_link), &(uLINK[i].num_mother), &(uLINK[i].num_shape), &(uLINK[i].m),  
 	    &(uLINK[i].a[0]),    &(uLINK[i].a[1]),    &(uLINK[i].a[2]), 
 	    &(uLINK[i].l[0]),    &(uLINK[i].l[1]),    &(uLINK[i].l[2]), 
@@ -100,7 +100,8 @@ int readRobot()
 	    &(uLINK[i].p_c[0]),  &(uLINK[i].p_c[1]),  &(uLINK[i].p_c[2]), 
 	    &(uLINK[i].R[0][0]), &(uLINK[i].R[1][0]), &(uLINK[i].R[2][0]),  
 	    &(uLINK[i].R[0][1]), &(uLINK[i].R[1][1]), &(uLINK[i].R[2][1]), 
-	    &(uLINK[i].R[0][2]), &(uLINK[i].R[1][2]), &(uLINK[i].R[2][2]));
+	    &(uLINK[i].R[0][2]), &(uLINK[i].R[1][2]), &(uLINK[i].R[2][2]),
+	    &(uLINK[i].RoM[0]),  &(uLINK[i].RoM[1]));
     //cout << "[" << str << "]" << endl;
   }
 
@@ -175,7 +176,14 @@ void  makeRobot() // make the robot
     //dJointSetHingeAnchor( joint[j], uLINK[j].p_j[0], uLINK[j].p_j[1], uLINK[j].p_j[2]);
     dJointSetHingeAnchor( joint[j], uLINK[j].p_j[0], uLINK[j].p_j[1], uLINK[j].p_j[2] + height);
     dJointSetHingeAxis( joint[j], uLINK[j].a[0], uLINK[j].a[1], uLINK[j].a[2]);
+    dJointSetHingeParam( joint[j], dParamLoStop, uLINK[j].RoM[0]);
+    dJointSetHingeParam( joint[j], dParamHiStop, uLINK[j].RoM[1]);
   }
+  //dJointSetHingeParam( joint[1], dParamHiStop, 2*Pi/3);
+  //dJointSetHingeParam( joint[3], dParamHiStop, 2*Pi/3);
+  //dJointSetHingeParam( joint[4], dParamLoStop, -2*Pi/3);
+  //dJointSetHingeParam( joint[6], dParamLoStop, -2*Pi/3);
+
 }
 
 void drawRobot() // draw the robot
@@ -232,7 +240,7 @@ void destroyRobot() // destroy the robot
 
 void AddTorque()
 {
-  if (STEPS < 50)
+  //  if (STEPS < 50)
     for (int i = 1; i < NUM_l; i++)
       dJointAddHingeTorque( joint[i], jointTorque[i]);
 }
@@ -281,10 +289,10 @@ static void simLoop(int pause) // simulation loop
 
 static void start()
 {
-  //static float xyz[3] = {  0.0, 1.5, 0.5};
-  //static float hpr[3] = {-90.0, 0.0, 0.0};
-  static float xyz[3] = { 1.0, 1.0, 0.7};
-  static float hpr[3] = {-135, 0.0, 0.0};
+  static float xyz[3] = {  0.0, 1.5, 0.5};
+  static float hpr[3] = {-90.0, 0.0, 0.0};
+  //static float xyz[3] = { 1.0, 1.0, 0.7};
+  //static float hpr[3] = {-135, 0.0, 0.0};
 
   dsSetViewpoint( xyz, hpr); // viewpoint, direction setting
   dsSetSphereQuality(3);     // sphere quality setting
