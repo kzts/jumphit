@@ -99,11 +99,6 @@ dJointID joint[NUM_l]; // joint ID number
 RobotLink uLINK[NUM_l];
 CylinderChamber Chamber[NUM_l][NUM_c];
 
-//double Pos_link_data [NUM_t][NUM_l][XYZ];
-//double Pos_joint_data[NUM_t][NUM_l][XYZ];
-//double Angle_data[NUM_t][NUM_l];
-//double Prs_data [NUM_t][NUM_l][NUM_c];
-
 double dataPosLink [NUM_t][NUM_l][XYZ];
 double dataPosJoint[NUM_t][NUM_l][XYZ];
 double dataAngle[NUM_t][NUM_l];
@@ -111,13 +106,7 @@ double dataTorque[NUM_t][NUM_l];
 double dataPosture[NUM_t][NUM_l][NUM_r];
 double dataPressure[NUM_t][NUM_l][NUM_c];
 
-//char filename_o[999];
-//char filename_m[999];
-//char filename_p[999];
 char filename_r[999] = "../data/result.dat";
-
-//dReal jointTorque[NUM_l];
-unsigned int DirName;
 
 dReal radius = 0.02;
 //dReal height = 0.5;
@@ -133,10 +122,6 @@ int Idx_R[NUM_r] = { 0,1,2, 4,5,6, 8,9,10};
 void loadCommand(void){
   FILE *fp_cmd;
   char str[MAX_str];
-  //unsigned int num_line = 0;
-  //unsigned int i, j;
-  //double sum_time;
-  //unsigned int phase;
   double phase_time[NUM_OF_PHASE];
   char s[NUM_l + NUM_l + 2][MAX_str]; 
 
@@ -185,25 +170,12 @@ void loadCommand(void){
     cout << endl;
     }
   }
-  
-  //printf( "%3.2f ", phase_time[i]);
-  //printf("\n"); 
-  //for (i = 0; i < NUM_OF_PHASE; i++)
-  //printf( "%3.2f ", Time_switch[i]);
-  //printf("\n"); 
-
-  //for (i = 0; i < NUM_OF_PHASE; i++){
-  //for (j = 0; j < NUM_OF_CHANNELS; j++)
-  //printf( "%3.2f ", Value_valves_phase[i][j]);
-  //printf("\n"); 
-  //}
 
   fclose(fp_cmd);
 }
 
 int getPhaseNumber( double elasped_t_){
   unsigned int phase_num = 0;
-  //unsigned int i;
 
   if ( elasped_t_ > Time_switch[NUM_OF_PHASE - 1])
     phase_num = NUM_OF_PHASE - 1;
@@ -216,21 +188,12 @@ int getPhaseNumber( double elasped_t_){
 }
 
 void setTargetPressure(void){
-//void setTargetPressure( double old_tv_s_, double old_tv_us_){
-  //double elasped_t = get_elasped_ms_time( old_tv_s_, old_tv_us_);
-  //int num_phase    = get_phase_number( elasped_t);  
   double timeElasped = ((double) STEPS)* ((double)TIMESTEP)* ((double)S_TO_MS);
   int numPhase       = getPhaseNumber( timeElasped);
 
-  //for ( int i = 0; i < (NUM_l + NUM_l); i++)
-  //Value_valves[i] = Value_valves_phase[num_phase][i];
-  //cout << STEPS << ": ";
   for ( int i = 0; i < NUM_l; i++)
     for ( int s = 0; s < NUM_c; s++)
       Chamber[i][s].prsTar = Value_valves_phase[numPhase][NUM_c*i + s]* Prs_room;
-      //cout << Value_valves_phase[numPhase][NUM_c*i + s]* Prs_room << ", ";
-      //cout << endl;
-  //cout << "step: " << STEPS << ", phase:" << numPhase << endl; 
 }
 
 double getMassFlowRate( double prsU, double prsD){
@@ -322,7 +285,6 @@ void updatePressureAll(void)
 void loadRobot(void)
 {
   ifstream ifs("/home/isi/tanaka/MATLAB/Data/jumpHitODE/InitialPosture.dat");
-  //  string str, str2;
   string str;
 
   if ( ifs.fail()){
@@ -502,16 +464,13 @@ void addTorque()
 {
   for (int i = 1; i < NUM_l; i++)
     uLINK[i].torque = uLINK[i].L_MA* PI* pow( uLINK[i].D, 2)/ 4 *( Chamber[i][1].prs - Chamber[i][0].prs);
-    //jointTorque[i] = uLINK[i].L_MA* PI* pow( uLINK[i].D, 2)/ 4 *( Chamber[i][1].prs - Chamber[i][0].prs);
  
-  //  if (STEPS < 50)
   for (int i = 1; i < NUM_l; i++)
     dJointAddHingeTorque( joint[i], uLINK[i].torque);
-    //dJointAddHingeTorque( joint[i], jointTorque[i]);
+
 }
 
 void getState(){
-  //double q[NUM];
   dVector3 res;
   dMatrix3 R;
 
@@ -520,21 +479,17 @@ void getState(){
     const dReal *p = dBodyGetPosition( rlink[i].body);
     for (int d = 0; d < XYZ; d++)
       dataPosLink[STEPS][i][d] = p[d];
-      //Pos_link_data[STEPS][i][d] = p[d];
   }
   // joint position
   for (int i = 1; i < NUM_l; i++){
     dJointGetHingeAnchor( joint[i], res);
     for (int d = 0; d < XYZ; d++)
       dataPosJoint[STEPS][i][d] = res[d];
-      //Pos_joint_data[STEPS][i][d] = res[d];
-      //Pos_joint_data[STEPS][i][d] = dJointGetHingeAngle( joint[i]);
   }
   // pressure
   for (int i = 0; i < NUM_l; i++)
     for (int d = 0; d < NUM_c; d++)
       dataPressure[STEPS][i][d] = Chamber[i][d].prs;
-      //Prs_data[STEPS][i][d] = Chamber[i][d].prs;
   // angle
   for (int i = 1; i < NUM_l; i++)
     dataAngle[STEPS][i] = dJointGetHingeAngle( joint[i]);
@@ -547,7 +502,6 @@ void getState(){
   // torque
   for (int i = 1; i < NUM_l; i++)
     dataTorque[STEPS][i] = uLINK[i].torque;
-
   //cout << "body R: ";
   //for (int i = 0; i < NUM_r; i++)
   //cout << R[Idx_R[i]] << ", ";
@@ -601,66 +555,7 @@ void setDrawStuff()        // setup of draw functions
   fn.path_to_textures = "../../drawstuff/textures"; // texture path
 }
 
-/*
-void getFileName(){
-  struct timeval now;
-  gettimeofday(&now, NULL);
-  struct tm *pnow = localtime(&now.tv_sec);
-
-  int year   = pnow->tm_year + 1900;
-  int month  = pnow->tm_mon + 1;
-  int day    = pnow->tm_mday;
-
-  int hour   = pnow->tm_hour;
-  int minute = pnow->tm_min;
-  int second = pnow->tm_sec;
-  int usec   = now.tv_usec;
-  
-  sprintf( filename_o, "../data/%04d%02d%02d/%06d/jump_o_%02d%02d_%02d%06d.dat", 
-	   year, month, day, DirName, hour, minute, second, usec);
-  sprintf( filename_m, "../data/%04d%02d%02d/%06d/jump_m_%02d%02d_%02d%06d.dat", 
-	   year, month, day, DirName, hour, minute, second, usec);
-  sprintf( filename_p, "../data/%04d%02d%02d/%06d/jump_p_%02d%02d_%02d%06d.dat", 
-	   year, month, day, DirName, hour, minute, second, usec);
-  //cout << filename_o << endl;
-}
-*/
 void saveData(){
-  /*
-  ofstream fout_m( filename_m, ios::out);	
-  ofstream fout_o( filename_o, ios::out);	
-  ofstream fout_p( filename_p, ios::out);	
-  
-  for(int t=0; t < NUM_t; t++){
-    fout_m << t << "\t";
-    for(int i=0; i < NUM_l; i++)
-      for(int d=0; d < XYZ; d++)
-	fout_m << dataPosLink[t][i][d] << "\t";
-	//fout_m << Pos_link_data[t][i][d] << "\t";
-    for(int i=0; i < NUM_l; i++)  
-      for(int d=0; d < XYZ; d++)        
-	fout_m << dataPosJoint[t][i][d] << "\t";
-	//fout_m << Pos_joint_data[t][i][d] << "\t";
-    fout_m << endl;
-  }
-  for(int i=0; i < NUM_l; i++)
-    fout_o << uLINK[i].torque << "\t";
-    //fout_o << jointTorque[i] << "\t";
-  fout_o << endl;
-
-  for(int t=0; t < NUM_t; t++){
-    fout_p << t << "\t";
-    for(int i=0; i < NUM_l; i++)
-      for(int d=0; d < NUM_c; d++)
-	fout_p << dataPressure[t][i][d] << "\t";
-    fout_p << endl;
-  }
-
-  fout_m.close();
-  fout_o.close();
-  fout_p.close();
-  */
-  // ---------------------------------------------------------------------
   ofstream fout_r( filename_r, ios::out);	
 
   for(int t=0; t < NUM_t; t++){
@@ -689,17 +584,6 @@ void saveData(){
 
 int main (int argc, char *argv[])
 {
-  
-  // variables for filaneme
-  //if ( argc != (NUM_l + 2)){
-  //printf("error: input ten values!: nine joint torque and directory name\n");
-  //return 0;
-  //}
-  //for(int i=0; i < NUM_l; i++)
-  //jointTorque[i] = atof(argv[i + 1]);
-  //DirName = atoi( argv[ NUM_l + 1]);
-  //cout << DirName << endl;
-
   // initiation
   dInitODE();
   setDrawStuff();
@@ -728,8 +612,6 @@ int main (int argc, char *argv[])
   dWorldDestroy (world);
   dCloseODE();
 
-  //getFileName();
-  //if ( VIEW != 1)
   saveData();
 
   return 0;
