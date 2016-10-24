@@ -109,6 +109,88 @@ dReal height = 0.1;
 #define L_mgn 2e-2
 #define Prs_room 1e+5
 
+#define MAX_str 1024
+#define NUM_OF_PHASE 10
+
+double Value_valves_phase[NUM_OF_PHASE][NUM_l] = {};
+double Time_phase[NUM_OF_PHASE] = {};
+double Time_switch[NUM_OF_PHASE] = {};
+double Value_valves[NUM_l] = {};
+
+void load_command(void){
+  FILE *fp_cmd;
+  char str[MAX_str];
+  //unsigned int num_line = 0;
+  //unsigned int i, j;
+  //double sum_time;
+  //unsigned int phase;
+  double phase_time[NUM_OF_PHASE];
+  char s[NUM_l + 2][MAX_str]; 
+
+  fp_cmd = fopen( "../data/cmd.dat", "r");
+  
+  if (fp_cmd == NULL){
+    printf("File open error\n");
+    return;
+  }
+
+  fgets( str, MAX_str, fp_cmd);
+  for (int i = 0; i < NUM_OF_PHASE; i++){
+    fgets( str, MAX_str, fp_cmd);
+    sscanf( str, "%s %s  %s %s %s %s  %s %s %s %s  %s %s %s %s  %s %s %s %s", s[0], s[1],  
+	    s[ 2], s[ 3], s[ 4], s[ 5],  s[ 6], s[ 7], s[ 8], s[9], 
+	    s[10], s[11], s[12], s[13],  s[14], s[15], s[16], s[17]);
+    phase_time[i] = atof( s[1]);
+    for (int j = 0; j < NUM_l; j++)
+      Value_valves_phase[i][j] = atof( s[j+2]);
+  }
+  
+  for (int i = 0; i < NUM_OF_PHASE; i++){
+    double sum_time = 0.0;
+    for (int j = 0; j <= i; j++)
+      sum_time = sum_time + phase_time[j];
+    Time_switch[i] = sum_time;
+  }
+
+  //for (i = 0; i < NUM_OF_PHASE; i++)
+  //printf( "%3.2f ", phase_time[i]);
+  //printf("\n"); 
+  //for (i = 0; i < NUM_OF_PHASE; i++)
+  //printf( "%3.2f ", Time_switch[i]);
+  //printf("\n"); 
+
+  //for (i = 0; i < NUM_OF_PHASE; i++){
+  //for (j = 0; j < NUM_OF_CHANNELS; j++)
+  //printf( "%3.2f ", Value_valves_phase[i][j]);
+  //printf("\n"); 
+  //}
+
+  fclose(fp_cmd);
+}
+
+int get_phase_number( double elasped_t_){
+  unsigned int phase_num = 0;
+  //unsigned int i;
+
+  if ( elasped_t_ > Time_switch[NUM_OF_PHASE - 1])
+    phase_num = NUM_OF_PHASE - 1;
+  else 
+    for ( int i = 1; i < NUM_OF_PHASE; i++)
+      if ( elasped_t_ < Time_switch[i] && elasped_t_ > Time_switch[i - 1])
+	phase_num = i;
+
+  return phase_num;
+}
+
+void get_valve_value( double old_tv_s_, double old_tv_us_){
+  //double elasped_t = get_elasped_ms_time( old_tv_s_, old_tv_us_);
+  double elasped_t = double( STEPS);
+  int num_phase    = get_phase_number( elasped_t);
+
+  for ( int num_ch = 0; num_ch < NUM_l; num_ch++)
+    Value_valves[num_ch] = Value_valves_phase[num_phase][num_ch];
+}
+
 double getMassFlowRate( double prsU, double prsD){
   double dot_m;
 
