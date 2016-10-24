@@ -21,8 +21,8 @@ using namespace std;
 #define dsDrawCapsule  dsDrawCapsuleD
 #endif
 
-#define VIEW 1
-//#define VIEW 0
+//#define VIEW 1
+#define VIEW 0
 
 #define N_Box 0
 #define N_Sphere 1
@@ -99,8 +99,8 @@ dReal jointTorque[NUM_l];
 unsigned int DirName;
 
 dReal radius = 0.02;
-dReal height = 0.5;
-//dReal height = 0.0;
+//dReal height = 0.5;
+dReal height = 0.0;
 
 #define k_air 1.4
 #define R_air 8.3
@@ -154,22 +154,24 @@ void loadCommand(void){
     Time_switch[i] = sum_time;
   }
 
-  cout << "phase time: ";
-  for (int i = 0; i < NUM_OF_PHASE; i++)
-    cout << phase_time[i] << ", ";
-  cout << endl;
-
-  cout << "switch time: ";
-  for (int i = 0; i < NUM_OF_PHASE; i++)
-    cout << Time_switch[i] << ", ";
-  cout << endl;
-  
-  cout << "target value: " << endl;
-  for (int i = 0; i < NUM_OF_PHASE; i++){    
-    cout << "#" << i << ": ";
-    for (int j = 0; j < (NUM_l + NUM_l) ; j++)
-      cout << Value_valves_phase[i][j] << ", ";    
+  if (VIEW==1){
+    cout << "phase time: ";
+    for (int i = 0; i < NUM_OF_PHASE; i++)
+      cout << phase_time[i] << ", ";
     cout << endl;
+    
+    cout << "switch time: ";
+    for (int i = 0; i < NUM_OF_PHASE; i++)
+      cout << Time_switch[i] << ", ";
+    cout << endl;
+    
+    cout << "target value: " << endl;
+    for (int i = 0; i < NUM_OF_PHASE; i++){    
+      cout << "#" << i << ": ";
+      for (int j = 0; j < (NUM_l + NUM_l) ; j++)
+	cout << Value_valves_phase[i][j] << ", ";    
+    cout << endl;
+    }
   }
   
   //printf( "%3.2f ", phase_time[i]);
@@ -216,14 +218,16 @@ void setTargetPressure(void){
       Chamber[i][s].prsTar = Value_valves_phase[numPhase][NUM_c*i + s]* Prs_room;
       //cout << Value_valves_phase[numPhase][NUM_c*i + s]* Prs_room << ", ";
       //cout << endl;
-  cout << "step: " << STEPS << ", phase:" << numPhase << endl; 
+  //cout << "step: " << STEPS << ", phase:" << numPhase << endl; 
 }
 
 double getMassFlowRate( double prsU, double prsD){
   double dot_m;
 
   if ( prsU/ prsD > pow( 2.0/ (k_air + 1), k_air/( k_air - 1.0)))
-    dot_m = ( S_ori/ sqrt( T_air))* sqrt(( 2.0* k_air)/(( k_air - 1.0)* R_air))* prsU* sqrt( pow( prsU/ prsD, 2.0/k_air) - pow( prsU/ prsD, (k_air - 1.0)/ k_air));
+    dot_m = ( S_ori/ sqrt( T_air))* 
+      sqrt(( 2.0* k_air)/(( k_air - 1.0)* R_air))* prsU* 
+      sqrt( pow( prsU/ prsD, 2.0/k_air) - pow( prsU/ prsD, (k_air - 1.0)/ k_air));
   else 
     dot_m = ( S_ori/ sqrt( T_air))* sqrt(( 2.0* k_air)/(( k_air + 1.0)* R_air))* prsU;
   return dot_m; 
@@ -411,9 +415,9 @@ void  setRobot() // make the robot
   }
 
   // joint
-  joint[0] = dJointCreateFixed( world, 0); // fixed base trunk
-  dJointAttach( joint[0], rlink[0].body, 0);
-  dJointSetFixed( joint[0]);
+  //joint[0] = dJointCreateFixed( world, 0); // fixed base trunk
+  //dJointAttach( joint[0], rlink[0].body, 0);
+  //dJointSetFixed( joint[0]);
 
   //for (int j = 0; j < NUM_l; j++) {
   for (int j = 1; j < NUM_l; j++) {
@@ -618,13 +622,13 @@ int main (int argc, char *argv[])
 {
   
   // variables for filaneme
-  if ( argc != (NUM_l + 2)){
-    printf("error: input ten values!: nine joint torque and directory name\n");
-    return 0;
-  }
-  for(int i=0; i < NUM_l; i++)
-    jointTorque[i] = atof(argv[i + 1]);
-  DirName = atoi( argv[ NUM_l + 1]);
+  //if ( argc != (NUM_l + 2)){
+  //printf("error: input ten values!: nine joint torque and directory name\n");
+  //return 0;
+  //}
+  //for(int i=0; i < NUM_l; i++)
+  //jointTorque[i] = atof(argv[i + 1]);
+  //DirName = atoi( argv[ NUM_l + 1]);
   //cout << DirName << endl;
 
   // initiation
