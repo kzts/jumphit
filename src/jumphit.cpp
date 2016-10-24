@@ -28,18 +28,30 @@ using namespace std;
 #define N_Sphere 1
 #define N_Cylinder 2
 
-#define  NUM_l 9       // link number
-#define  NUM_p 27      // parameter number
-#define  NUM_c 2       // chambers number in one cylinder
-
-#define XYZ 3
+#define NUM_l 9  // link number
+#define NUM_p 27 // parameter number
+#define NUM_c 2  // chambers number in one cylinder
 //#define Num_t 1000
 #define NUM_t 10000
+#define NUM_r 9 // number of object in matrix R of the trunk
+
+#define XYZ 3
 #define PI 3.14159
 
 //#define TIMESTEP 0.001
 #define TIMESTEP 1e-4
 #define S_TO_MS 1e+3
+
+#define k_air 1.4
+#define R_air 8.3
+#define T_air 300
+
+#define S_ori 5.6e-5
+#define L_mgn 2e-2
+#define Prs_room 1e+5
+
+#define MAX_str 1024
+#define NUM_OF_PHASE 10
 
 dWorldID world;             // dynamic simulation world
 dSpaceID space;             // contact dection space
@@ -70,6 +82,7 @@ typedef struct {
   double Q_old;
   double L_stk;
   double L_MA;
+  dReal torque;
 } RobotLink;
 
 typedef struct { 
@@ -86,37 +99,36 @@ dJointID joint[NUM_l]; // joint ID number
 RobotLink uLINK[NUM_l];
 CylinderChamber Chamber[NUM_l][NUM_c];
 
-double Pos_link_data [NUM_t][NUM_l][XYZ];
-double Pos_joint_data[NUM_t][NUM_l][XYZ];
-double Angle_data[NUM_t][NUM_l];
-double Prs_data [NUM_t][NUM_l][NUM_c];
+//double Pos_link_data [NUM_t][NUM_l][XYZ];
+//double Pos_joint_data[NUM_t][NUM_l][XYZ];
+//double Angle_data[NUM_t][NUM_l];
+//double Prs_data [NUM_t][NUM_l][NUM_c];
+
+double dataPosLink [NUM_t][NUM_l][XYZ];
+double dataPosJoint[NUM_t][NUM_l][XYZ];
+double dataAngle[NUM_t][NUM_l];
+double dataTorque[NUM_t][NUM_l];
+double dataPosture[NUM_t][NUM_l][NUM_r];
+double dataPressure[NUM_t][NUM_l][NUM_c];
 
 char filename_o[999];
 char filename_m[999];
 char filename_p[999];
+char filename_r[999] = "../data/result.dat";
 
-dReal jointTorque[NUM_l];
+//dReal jointTorque[NUM_l];
 unsigned int DirName;
 
 dReal radius = 0.02;
 //dReal height = 0.5;
 dReal height = 0.0;
 
-#define k_air 1.4
-#define R_air 8.3
-#define T_air 300
-
-#define S_ori 5.6e-5
-#define L_mgn 2e-2
-#define Prs_room 1e+5
-
-#define MAX_str 1024
-#define NUM_OF_PHASE 10
-
 double Value_valves_phase[NUM_OF_PHASE][NUM_l + NUM_l] = {};
 double Time_phase[NUM_OF_PHASE] = {};
 double Time_switch[NUM_OF_PHASE] = {};
 double Value_valves[NUM_l] = {};
+
+int Idx_R[NUM_r] = { 0,1,2, 4,5,6, 8,9,10};
 
 void loadCommand(void){
   FILE *fp_cmd;
@@ -128,7 +140,7 @@ void loadCommand(void){
   double phase_time[NUM_OF_PHASE];
   char s[NUM_l + NUM_l + 2][MAX_str]; 
 
-  fp_cmd = fopen( "../data/cmd.dat", "r");
+  fp_cmd = fopen( "../data/command.dat", "r");
   
   if (fp_cmd == NULL){
     printf("File open error\n");
@@ -486,34 +498,60 @@ void destroyRobot() // destroy the robot
   }
 }
 
-void AddTorque()
+void addTorque()
 {
   for (int i = 1; i < NUM_l; i++)
-    jointTorque[i] = uLINK[i].L_MA* PI* pow( uLINK[i].D, 2)/ 4 *( Chamber[i][1].prs - Chamber[i][0].prs);
+    uLINK[i].torque = uLINK[i].L_MA* PI* pow( uLINK[i].D, 2)/ 4 *( Chamber[i][1].prs - Chamber[i][0].prs);
+    //jointTorque[i] = uLINK[i].L_MA* PI* pow( uLINK[i].D, 2)/ 4 *( Chamber[i][1].prs - Chamber[i][0].prs);
  
   //  if (STEPS < 50)
   for (int i = 1; i < NUM_l; i++)
-    dJointAddHingeTorque( joint[i], jointTorque[i]);
+    dJointAddHingeTorque( joint[i], uLINK[i].torque);
+    //dJointAddHingeTorque( joint[i], jointTorque[i]);
 }
 
 void getState(){
   //double q[NUM];
   dVector3 res;
+  dMatrix3 R;
 
+  // link position
   for (int i = 0; i < NUM_l; i++){
     const dReal *p = dBodyGetPosition( rlink[i].body);
     for (int d = 0; d < XYZ; d++)
-      Pos_link_data[STEPS][i][d] = p[d];
+      dataPosLink[STEPS][i][d] = p[d];
+      //Pos_link_data[STEPS][i][d] = p[d];
   }
+  // joint position
   for (int i = 1; i < NUM_l; i++){
     dJointGetHingeAnchor( joint[i], res);
     for (int d = 0; d < XYZ; d++)
-      Pos_joint_data[STEPS][i][d] = res[d];
+      dataPosJoint[STEPS][i][d] = res[d];
+      //Pos_joint_data[STEPS][i][d] = res[d];
       //Pos_joint_data[STEPS][i][d] = dJointGetHingeAngle( joint[i]);
   }
+  // pressure
   for (int i = 0; i < NUM_l; i++)
     for (int d = 0; d < NUM_c; d++)
-      Prs_data[STEPS][i][d] = Chamber[i][d].prs;
+      dataPressure[STEPS][i][d] = Chamber[i][d].prs;
+      //Prs_data[STEPS][i][d] = Chamber[i][d].prs;
+  // angle
+  for (int i = 1; i < NUM_l; i++)
+    dataAngle[STEPS][i] = dJointGetHingeAngle( joint[i]);
+  // posture
+  for (int i = 0; i < NUM_l; i++){
+    dBodyCopyRotation( rlink[i].body, R);
+    for (int j = 0; j < NUM_r; j++)
+      dataPosture[STEPS][i][j] = R[Idx_R[j]];
+  }
+  // torque
+  for (int i = 1; i < NUM_l; i++)
+    dataTorque[STEPS][i] = uLINK[i].torque;
+
+  //cout << "body R: ";
+  //for (int i = 0; i < NUM_r; i++)
+  //cout << R[Idx_R[i]] << ", ";
+  //cout << endl;
 }
 
 //static void restart() // simulation restart
@@ -533,7 +571,7 @@ static void simLoop(int pause) // simulation loop
     setTargetPressure();
     updatePressureAll();
     
-    AddTorque();
+    addTorque();
     dSpaceCollide(space,0,&nearCallback);
     dWorldStep( world, TIMESTEP);
     dJointGroupEmpty(contactgroup);
@@ -595,27 +633,56 @@ void saveData(){
     fout_m << t << "\t";
     for(int i=0; i < NUM_l; i++)
       for(int d=0; d < XYZ; d++)
-	fout_m << Pos_link_data[t][i][d] << "\t";
+	fout_m << dataPosLink[t][i][d] << "\t";
+	//fout_m << Pos_link_data[t][i][d] << "\t";
     for(int i=0; i < NUM_l; i++)  
       for(int d=0; d < XYZ; d++)        
-	fout_m << Pos_joint_data[t][i][d] << "\t";
+	fout_m << dataPosJoint[t][i][d] << "\t";
+	//fout_m << Pos_joint_data[t][i][d] << "\t";
     fout_m << endl;
   }
   for(int i=0; i < NUM_l; i++)
-    fout_o << jointTorque[i] << "\t";
+    fout_o << uLINK[i].torque << "\t";
+    //fout_o << jointTorque[i] << "\t";
   fout_o << endl;
 
   for(int t=0; t < NUM_t; t++){
     fout_p << t << "\t";
     for(int i=0; i < NUM_l; i++)
       for(int d=0; d < NUM_c; d++)
-	fout_p << Prs_data[t][i][d] << "\t";
+	fout_p << dataPressure[t][i][d] << "\t";
     fout_p << endl;
   }
 
   fout_m.close();
   fout_o.close();
   fout_p.close();
+
+  // ---------------------------------------------------------------------
+  ofstream fout_r( filename_r, ios::out);	
+
+  for(int t=0; t < NUM_t; t++){
+    fout_r << t << "\t";
+    for(int i=0; i < NUM_l; i++)
+      for(int d=0; d < XYZ; d++)
+	fout_r << dataPosLink[t][i][d] << "\t";
+    for(int i=0; i < NUM_l; i++)  
+      for(int d=0; d < XYZ; d++)        
+	fout_r << dataPosJoint[t][i][d] << "\t";
+    for(int i=0; i < NUM_l; i++)  
+	fout_r << dataAngle[t][i] << "\t";
+    for(int i=0; i < NUM_l; i++)  
+      for(int d=0; d < NUM_r; d++)        
+	fout_r << dataPosture[t][i][d] << "\t";
+    for(int i=0; i < NUM_l; i++)
+      fout_r << dataTorque[t][i] << "\t";
+    for(int i=0; i < NUM_l; i++)
+      for(int d=0; d < NUM_c; d++)
+	fout_r << dataPressure[t][i][d] << "\t";
+    fout_r << endl;
+  }
+  fout_r.close();
+
 }
 
 int main (int argc, char *argv[])
