@@ -21,8 +21,8 @@ using namespace std;
 #define dsDrawCapsule  dsDrawCapsuleD
 #endif
 
-//#define VIEW 1
-#define VIEW 0
+#define VIEW 1
+//#define VIEW 0
 
 #define N_Box 0
 #define N_Sphere 1
@@ -35,7 +35,7 @@ using namespace std;
 #define XYZ 3
 //#define Num_t 1000
 #define Num_t 1000
-#define Pi 3.14159
+#define PI 3.14159
 
 //#define TIMESTEP 0.001
 #define TIMESTEP 1e-4
@@ -98,14 +98,14 @@ dReal jointTorque[NUM_l];
 unsigned int DirName;
 
 dReal radius = 0.02;
-//dReal height = 0.5;
-dReal height = 0.0;
+dReal height = 0.1;
+//dReal height = 0.0;
 
 #define k_air 1.4
 #define R_air 8.3
 #define T_air 300
 
-#define S_ori 8e-4
+#define S_ori 5.6e-5
 #define L_mgn 2e-2
 #define Prs_room 1e+5
 
@@ -135,15 +135,15 @@ void updateChamberAll()
     L_cmb[0] = L_tmp + L_mgn;
     L_cmb[1] = (uLINK[i].L_stk - L_tmp) + L_mgn;
 
-    Chamber[i][0].V = L_cmb[0]* uLINK[i].D;
-    Chamber[i][1].V = L_cmb[1]* uLINK[i].D;
+    Chamber[i][0].V = L_cmb[0]* PI* pow( uLINK[i].D, 2)/ 4;
+    Chamber[i][1].V = L_cmb[1]* PI* pow( uLINK[i].D, 2)/ 4;
   }
   for (int i = 1; i < NUM_l; i++){
     dot_L_tmp           = uLINK[i].L_MA* uLINK[i].dot_Q;
     dot_L_cmb[0]        = + dot_L_tmp;
     dot_L_cmb[1]        = - dot_L_tmp;
-    Chamber[i][0].dot_V = dot_L_cmb[0]* uLINK[i].D;
-    Chamber[i][1].dot_V = dot_L_cmb[1]* uLINK[i].D;
+    Chamber[i][0].dot_V = dot_L_cmb[0]* PI* pow( uLINK[i].D, 2)/ 4;
+    Chamber[i][1].dot_V = dot_L_cmb[1]* PI* pow( uLINK[i].D, 2)/ 4;
   }
 }
 
@@ -237,14 +237,14 @@ void readRobot()
     // set diameter
     for (int i = 0; i < NUM_l; i++)    
       uLINK[i].D = 40e-3;
-    uLINK[8].D = 32e-3;
-    uLINK[9].D = 25e-3;
+    uLINK[7].D = 32e-3;
+    uLINK[8].D = 25e-3;
     
     // set moment arm
     for (int i = 0; i < NUM_l; i++)    
       uLINK[i].L_MA = 50e-3;
+    uLINK[7].L_MA = 20e-3;
     uLINK[8].L_MA = 20e-3;
-    uLINK[9].L_MA = 20e-3;
     
     // set piston stroke
     for (int i = 0; i < NUM_l; i++)    
@@ -259,8 +259,8 @@ void readRobot()
       for (int s = 0; s < 2; s++)    
 	Chamber[i][s].prsTar = Prs_room;
 
-    Chamber[1][0].prsTar = 2.0* Prs_room;
-
+    Chamber[8][0].prsTar = 5.0* Prs_room;
+    
   }
 }
 
@@ -301,9 +301,9 @@ void  makeRobot() // make the robot
   }
 
   // joint
-  //joint[0] = dJointCreateFixed( world, 0); // fixed base trunke
-  //dJointAttach( joint[0], rlink[0].body, 0);
-  //dJointSetFixed( joint[0]);
+  joint[0] = dJointCreateFixed( world, 0); // fixed base trunk
+  dJointAttach( joint[0], rlink[0].body, 0);
+  dJointSetFixed( joint[0]);
 
   //for (int j = 0; j < NUM_l; j++) {
   for (int j = 1; j < NUM_l; j++) {
@@ -318,11 +318,6 @@ void  makeRobot() // make the robot
     dJointSetHingeParam( joint[j], dParamLoStop, uLINK[j].RoM[0]);
     dJointSetHingeParam( joint[j], dParamHiStop, uLINK[j].RoM[1]);
   }
-  //dJointSetHingeParam( joint[1], dParamHiStop, 2*Pi/3);
-  //dJointSetHingeParam( joint[3], dParamHiStop, 2*Pi/3);
-  //dJointSetHingeParam( joint[4], dParamLoStop, -2*Pi/3);
-  //dJointSetHingeParam( joint[6], dParamLoStop, -2*Pi/3);
-
 }
 
 void drawRobot() // draw the robot
@@ -380,7 +375,7 @@ void destroyRobot() // destroy the robot
 void AddTorque()
 {
   for (int i = 1; i < NUM_l; i++)
-    jointTorque[i] = uLINK[i].D*( Chamber[i][1].prs - Chamber[i][0].prs);
+    jointTorque[i] = uLINK[i].L_MA* PI* pow( uLINK[i].D, 2)/ 4 *( Chamber[i][1].prs - Chamber[i][0].prs);
  
   //  if (STEPS < 50)
   for (int i = 1; i < NUM_l; i++)
@@ -419,8 +414,8 @@ void getState(){
 static void simLoop(int pause) // simulation loop
 {
   if (!pause) {
-    if (VIEW != 1)
-      getState();
+    //if (VIEW != 1)
+    getState();
     
     updatePressureAll();
     AddTorque();
@@ -547,10 +542,9 @@ int main (int argc, char *argv[])
   dWorldDestroy (world);
   dCloseODE();
 
-  if ( VIEW != 1){
-    getFileName();
-    saveData();
-  }
+  getFileName();
+  //if ( VIEW != 1)
+  saveData();
 
   return 0;
 }
