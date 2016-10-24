@@ -34,11 +34,12 @@ using namespace std;
 
 #define XYZ 3
 //#define Num_t 1000
-#define Num_t 1000
+#define NUM_t 10000
 #define PI 3.14159
 
 //#define TIMESTEP 0.001
 #define TIMESTEP 1e-4
+#define S_TO_MS 1e+3
 
 dWorldID world;             // dynamic simulation world
 dSpaceID space;             // contact dection space
@@ -85,10 +86,10 @@ dJointID joint[NUM_l]; // joint ID number
 RobotLink uLINK[NUM_l];
 CylinderChamber Chamber[NUM_l][NUM_c];
 
-double Pos_link_data [Num_t][NUM_l][XYZ];
-double Pos_joint_data[Num_t][NUM_l][XYZ];
-double Angle_data[Num_t][NUM_l];
-double Prs_data [Num_t][NUM_l][NUM_c];
+double Pos_link_data [NUM_t][NUM_l][XYZ];
+double Pos_joint_data[NUM_t][NUM_l][XYZ];
+double Angle_data[NUM_t][NUM_l];
+double Prs_data [NUM_t][NUM_l][NUM_c];
 
 char filename_o[999];
 char filename_m[999];
@@ -98,7 +99,7 @@ dReal jointTorque[NUM_l];
 unsigned int DirName;
 
 dReal radius = 0.02;
-dReal height = 0.1;
+dReal height = 0.5;
 //dReal height = 0.0;
 
 #define k_air 1.4
@@ -112,12 +113,12 @@ dReal height = 0.1;
 #define MAX_str 1024
 #define NUM_OF_PHASE 10
 
-double Value_valves_phase[NUM_OF_PHASE][NUM_l] = {};
+double Value_valves_phase[NUM_OF_PHASE][NUM_l + NUM_l] = {};
 double Time_phase[NUM_OF_PHASE] = {};
 double Time_switch[NUM_OF_PHASE] = {};
 double Value_valves[NUM_l] = {};
 
-void load_command(void){
+void loadCommand(void){
   FILE *fp_cmd;
   char str[MAX_str];
   //unsigned int num_line = 0;
@@ -125,7 +126,7 @@ void load_command(void){
   //double sum_time;
   //unsigned int phase;
   double phase_time[NUM_OF_PHASE];
-  char s[NUM_l + 2][MAX_str]; 
+  char s[NUM_l + NUM_l + 2][MAX_str]; 
 
   fp_cmd = fopen( "../data/cmd.dat", "r");
   
@@ -137,11 +138,12 @@ void load_command(void){
   fgets( str, MAX_str, fp_cmd);
   for (int i = 0; i < NUM_OF_PHASE; i++){
     fgets( str, MAX_str, fp_cmd);
-    sscanf( str, "%s %s  %s %s %s %s  %s %s %s %s  %s %s %s %s  %s %s %s %s", s[0], s[1],  
-	    s[ 2], s[ 3], s[ 4], s[ 5],  s[ 6], s[ 7], s[ 8], s[9], 
-	    s[10], s[11], s[12], s[13],  s[14], s[15], s[16], s[17]);
+    sscanf( str, "%s %s  %s %s  %s %s %s %s  %s %s %s %s  %s %s %s %s  %s %s %s %s", 
+	    s[0], s[1], s[ 2], s[ 3],  
+	    s[ 4], s[ 5], s[ 6], s[ 7],  s[ 8], s[ 9], s[10], s[11], 
+	    s[12], s[13], s[14], s[15],  s[16], s[17], s[18], s[19]);
     phase_time[i] = atof( s[1]);
-    for (int j = 0; j < NUM_l; j++)
+    for (int j = 0; j < (NUM_l + NUM_l); j++)
       Value_valves_phase[i][j] = atof( s[j+2]);
   }
   
@@ -152,7 +154,24 @@ void load_command(void){
     Time_switch[i] = sum_time;
   }
 
-  //for (i = 0; i < NUM_OF_PHASE; i++)
+  cout << "phase time: ";
+  for (int i = 0; i < NUM_OF_PHASE; i++)
+    cout << phase_time[i] << ", ";
+  cout << endl;
+
+  cout << "switch time: ";
+  for (int i = 0; i < NUM_OF_PHASE; i++)
+    cout << Time_switch[i] << ", ";
+  cout << endl;
+  
+  cout << "target value: " << endl;
+  for (int i = 0; i < NUM_OF_PHASE; i++){    
+    cout << "#" << i << ": ";
+    for (int j = 0; j < (NUM_l + NUM_l) ; j++)
+      cout << Value_valves_phase[i][j] << ", ";    
+    cout << endl;
+  }
+  
   //printf( "%3.2f ", phase_time[i]);
   //printf("\n"); 
   //for (i = 0; i < NUM_OF_PHASE; i++)
@@ -168,7 +187,7 @@ void load_command(void){
   fclose(fp_cmd);
 }
 
-int get_phase_number( double elasped_t_){
+int getPhaseNumber( double elasped_t_){
   unsigned int phase_num = 0;
   //unsigned int i;
 
@@ -182,13 +201,22 @@ int get_phase_number( double elasped_t_){
   return phase_num;
 }
 
-void get_valve_value( double old_tv_s_, double old_tv_us_){
+void setTargetPressure(void){
+//void setTargetPressure( double old_tv_s_, double old_tv_us_){
   //double elasped_t = get_elasped_ms_time( old_tv_s_, old_tv_us_);
-  double elasped_t = double( STEPS);
-  int num_phase    = get_phase_number( elasped_t);
+  //int num_phase    = get_phase_number( elasped_t);  
+  double timeElasped = ((double) STEPS)* ((double)TIMESTEP)* ((double)S_TO_MS);
+  int numPhase       = getPhaseNumber( timeElasped);
 
-  for ( int num_ch = 0; num_ch < NUM_l; num_ch++)
-    Value_valves[num_ch] = Value_valves_phase[num_phase][num_ch];
+  //for ( int i = 0; i < (NUM_l + NUM_l); i++)
+  //Value_valves[i] = Value_valves_phase[num_phase][i];
+  //cout << STEPS << ": ";
+  for ( int i = 0; i < NUM_l; i++)
+    for ( int s = 0; s < NUM_c; s++)
+      Chamber[i][s].prsTar = Value_valves_phase[numPhase][NUM_c*i + s]* Prs_room;
+      //cout << Value_valves_phase[numPhase][NUM_c*i + s]* Prs_room << ", ";
+      //cout << endl;
+  cout << "step: " << STEPS << ", phase:" << numPhase << endl; 
 }
 
 double getMassFlowRate( double prsU, double prsD){
@@ -206,7 +234,7 @@ double getDotPressure( double prsNow, double dot_m, double V, double dot_V)
   return k_air* R_air* T_air* dot_m / V - k_air* prsNow* dot_V/ V;
 }
 
-void updateChamberAll()
+void updateChamberAll(void)
 {
   double L_cmb[NUM_c], dot_L_cmb[NUM_c];
   double L_tmp, dot_L_tmp;
@@ -229,7 +257,7 @@ void updateChamberAll()
   }
 }
 
-void updateAngularVelocityAll()
+void updateAngularVelocityAll(void)
 {
   for (int i = 1; i < NUM_l; i++)
     if (STEPS == 0)
@@ -238,7 +266,7 @@ void updateAngularVelocityAll()
       uLINK[i].dot_Q = (1.0/ TIMESTEP)*( uLINK[i].Q - uLINK[i].Q_old);
 }
 
-void updateAngleAll()
+void updateAngleAll(void)
 {
   for (int i = 1; i < NUM_l; i++){
     uLINK[i].Q_old = uLINK[i].Q;
@@ -246,7 +274,7 @@ void updateAngleAll()
   }
 }
 
-void updatePressureAll()
+void updatePressureAll(void)
 {
   double prsU, prsD;
 
@@ -275,7 +303,7 @@ void updatePressureAll()
   }
 }
 
-void readRobot()
+void loadRobot(void)
 {
   ifstream ifs("/home/isi/tanaka/MATLAB/Data/jumpHitODE/InitialPosture.dat");
   //  string str, str2;
@@ -346,7 +374,7 @@ void readRobot()
   }
 }
 
-void  makeRobot() // make the robot
+void  setRobot() // make the robot
 {
   dMass mass; // mass parameter
   dMatrix3 R;
@@ -498,8 +526,9 @@ static void simLoop(int pause) // simulation loop
   if (!pause) {
     //if (VIEW != 1)
     getState();
-    
+    setTargetPressure();
     updatePressureAll();
+    
     AddTorque();
     dSpaceCollide(space,0,&nearCallback);
     dWorldStep( world, TIMESTEP);
@@ -513,10 +542,10 @@ static void simLoop(int pause) // simulation loop
 
 static void start()
 {
-  static float xyz[3] = {  0.0, 1.5, 0.5};
-  static float hpr[3] = {-90.0, 0.0, 0.0};
-  //static float xyz[3] = { 1.0, 1.0, 0.7};
-  //static float hpr[3] = {-135, 0.0, 0.0};
+  //static float xyz[3] = {  0.0, 1.5, 0.5};
+  //static float hpr[3] = {-90.0, 0.0, 0.0};
+  static float xyz[3] = { 1.0, 1.0, 0.7};
+  static float hpr[3] = {-135, 0.0, 0.0};
 
   dsSetViewpoint( xyz, hpr); // viewpoint, direction setting
   dsSetSphereQuality(3);     // sphere quality setting
@@ -558,7 +587,7 @@ void saveData(){
   ofstream fout_o( filename_o, ios::out);	
   ofstream fout_p( filename_p, ios::out);	
   
-  for(int t=0; t < Num_t; t++){
+  for(int t=0; t < NUM_t; t++){
     fout_m << t << "\t";
     for(int i=0; i < NUM_l; i++)
       for(int d=0; d < XYZ; d++)
@@ -572,7 +601,7 @@ void saveData(){
     fout_o << jointTorque[i] << "\t";
   fout_o << endl;
 
-  for(int t=0; t < Num_t; t++){
+  for(int t=0; t < NUM_t; t++){
     fout_p << t << "\t";
     for(int i=0; i < NUM_l; i++)
       for(int d=0; d < NUM_c; d++)
@@ -610,14 +639,16 @@ int main (int argc, char *argv[])
   dWorldSetERP( world, 0.9);                // set ERP
   dWorldSetCFM( world, 1e-4);               // set CFM
   ground = dCreatePlane(space, 0, 0, 1, 0); // set ground
-  readRobot();                              // set the robot
-  makeRobot();                              // set the robot
+  
+  loadCommand();
+  loadRobot();                             // set the robot
+  setRobot();                              // set the robot
 
   // loop
   if ( VIEW == 1)
     dsSimulationLoop ( argc, argv, 640, 480, &fn);
   else
-    for (int i = 0; i < Num_t; i++) 
+    for (int i = 0; i < NUM_t; i++) 
       simLoop(0);
 
   // termination
