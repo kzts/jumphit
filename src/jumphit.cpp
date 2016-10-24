@@ -111,9 +111,9 @@ double dataTorque[NUM_t][NUM_l];
 double dataPosture[NUM_t][NUM_l][NUM_r];
 double dataPressure[NUM_t][NUM_l][NUM_c];
 
-char filename_o[999];
-char filename_m[999];
-char filename_p[999];
+//char filename_o[999];
+//char filename_m[999];
+//char filename_p[999];
 char filename_r[999] = "../data/result.dat";
 
 //dReal jointTorque[NUM_l];
@@ -601,6 +601,7 @@ void setDrawStuff()        // setup of draw functions
   fn.path_to_textures = "../../drawstuff/textures"; // texture path
 }
 
+/*
 void getFileName(){
   struct timeval now;
   gettimeofday(&now, NULL);
@@ -623,8 +624,9 @@ void getFileName(){
 	   year, month, day, DirName, hour, minute, second, usec);
   //cout << filename_o << endl;
 }
-
+*/
 void saveData(){
+  /*
   ofstream fout_m( filename_m, ios::out);	
   ofstream fout_o( filename_o, ios::out);	
   ofstream fout_p( filename_p, ios::out);	
@@ -657,7 +659,7 @@ void saveData(){
   fout_m.close();
   fout_o.close();
   fout_p.close();
-
+  */
   // ---------------------------------------------------------------------
   ofstream fout_r( filename_r, ios::out);	
 
@@ -726,7 +728,7 @@ int main (int argc, char *argv[])
   dWorldDestroy (world);
   dCloseODE();
 
-  getFileName();
+  //getFileName();
   //if ( VIEW != 1)
   saveData();
 
