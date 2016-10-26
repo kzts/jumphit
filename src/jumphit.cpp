@@ -106,7 +106,7 @@ double dataTorque[NUM_t][NUM_l];
 double dataPosture[NUM_t][NUM_l][NUM_r];
 double dataPressure[NUM_t][NUM_l][NUM_c];
 
-char filename_r[999] = "../data/result.dat";
+char filename_r[999] = "../data/results.dat";
 
 dReal radius = 0.02;
 //dReal height = 0.5;
