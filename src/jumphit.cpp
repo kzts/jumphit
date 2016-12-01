@@ -31,7 +31,6 @@ using namespace std;
 #define NUM_l 9  // link number
 #define NUM_p 27 // parameter number
 #define NUM_c 2  // chambers number in one cylinder
-//#define Num_t 1000
 #define NUM_t 10000
 #define NUM_r 9 // number of object in matrix R of the trunk
 
@@ -52,6 +51,8 @@ using namespace std;
 
 #define MAX_str 1024
 #define NUM_OF_PHASE 10
+//#define MAX_SIMULATION_TIME 1.0
+//unsigned int NUM_t = MAX_SIMULATION_TIME / TIMESTEP;
 
 dWorldID world;             // dynamic simulation world
 dSpaceID space;             // contact dection space
@@ -371,12 +372,14 @@ void  setRobot() // make the robot
     // mass
     dMassSetZero( &mass);
     if ( uLINK[i].num_shape == N_Box)
-      dMassSetBox ( &mass, uLINK[i].m, uLINK[i].l[0], uLINK[i].l[1], uLINK[i].l[2]);
+      //dMassSetBox ( &mass, uLINK[i].m, uLINK[i].l[0], uLINK[i].l[1], uLINK[i].l[2]);
+      dMassSetBox ( &mass, uLINK[i].m/ uLINK[i].l[0] /uLINK[i].l[1] /uLINK[i].l[2], uLINK[i].l[0], uLINK[i].l[1], uLINK[i].l[2]);
     else if ( uLINK[i].num_shape == N_Sphere)
       dMassSetSphereTotal(  &mass, uLINK[i].m, radius);
     else
       dMassSetCapsuleTotal( &mass, uLINK[i].m, 3, radius, uLINK[i].l[2]);
     dBodySetMass( rlink[i].body, &mass);
+    //cout << "#" << i << ": " << mass.mass << endl; 
 
     // geometory
     if ( uLINK[i].num_shape == N_Box)
@@ -555,10 +558,11 @@ void setDrawStuff()        // setup of draw functions
   fn.path_to_textures = "../../drawstuff/textures"; // texture path
 }
 
-void saveData(){
+void saveData(int num_t_){
   ofstream fout_r( filename_r, ios::out);	
 
-  for(int t=0; t < NUM_t; t++){
+  //for(int t=0; t < NUM_t; t++){
+  for(int t=0; t < num_t_; t++){
     fout_r << t << "\t";
     for(int i=0; i < NUM_l; i++)
       for(int d=0; d < XYZ; d++)
@@ -584,6 +588,14 @@ void saveData(){
 
 int main (int argc, char *argv[])
 {
+  // get simulation time
+  if ( argc != 2 ){
+    cout << "input simulation time." << endl;
+    return -1;
+  }
+  double simulation_time = atof( argv[1] );
+  int num_t = simulation_time / TIMESTEP;
+
   // initiation
   dInitODE();
   setDrawStuff();
@@ -605,14 +617,18 @@ int main (int argc, char *argv[])
   if ( VIEW == 1)
     dsSimulationLoop ( argc, argv, 640, 480, &fn);
   else
-    for (int i = 0; i < NUM_t; i++) 
+    //for (int i = 0; i < NUM_t; i++) 
+    //simLoop(0);
+    for ( int i = 0; i < num_t; i++ ){ 
       simLoop(0);
-
+      if ( i == num_t )
+	saveData(i);
+    }
   // termination
   dWorldDestroy (world);
   dCloseODE();
 
-  saveData();
+  //saveData();
 
   return 0;
 }
