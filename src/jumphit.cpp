@@ -595,6 +595,7 @@ int main (int argc, char *argv[])
   }
   double simulation_time = atof( argv[1] );
   int num_t = simulation_time / TIMESTEP;
+  //cout << "time number: " << num_t << endl;
 
   // initiation
   dInitODE();
@@ -615,20 +616,18 @@ int main (int argc, char *argv[])
 
   // loop
   if ( VIEW == 1)
-    dsSimulationLoop ( argc, argv, 640, 480, &fn);
+    dsSimulationLoop( argc, argv, 640, 480, &fn );
   else
     //for (int i = 0; i < NUM_t; i++) 
     //simLoop(0);
-    for ( int i = 0; i < num_t; i++ ){ 
+    for ( int i = 0; i < num_t; i++ ) 
       simLoop(0);
-      if ( i == num_t )
-	saveData(i);
-    }
+ 
   // termination
   dWorldDestroy (world);
   dCloseODE();
 
   //saveData();
-
+  saveData(num_t);
   return 0;
 }
