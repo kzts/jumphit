@@ -441,7 +441,8 @@ static void nearCallback(void *data, dGeomID o1, dGeomID o2) // collison detecti
       contact[i].surface.mode   = dContactBounce | dContactSoftERP |
                                   dContactSoftCFM;
       //contact[i].surface.soft_erp   = 0.2;   // ERP of contact point (default)
-      contact[i].surface.soft_erp   = 0.1;   // ERP of contact point
+      //contact[i].surface.soft_erp   = 0.1;   // ERP of contact point (good reproductibity)
+      contact[i].surface.soft_erp   = 0.01;   // ERP of contact point
       contact[i].surface.soft_cfm   = 0.001; // CFM of contact point
       contact[i].surface.mu     = dInfinity; // friction coefficient: infinity
       dJointID c = dJointCreateContact(world,
