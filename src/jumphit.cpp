@@ -440,12 +440,9 @@ static void nearCallback(void *data, dGeomID o1, dGeomID o2) // collison detecti
     for (int i = 0; i < n; i++) {
       contact[i].surface.mode   = dContactBounce | dContactSoftERP |
                                   dContactSoftCFM;
-      //contact[i].surface.soft_erp   = 0.2;   // ERP of contact point (default)
-      //contact[i].surface.soft_erp   = 0.1;   // ERP of contact point (good reproductibity)
-      //contact[i].surface.soft_erp   = 0.01;   // ERP of contact point
-      contact[i].surface.soft_erp   = 1e-3;   // ERP of contact point
-      //contact[i].surface.soft_cfm   = 0.001; // CFM of contact point
-      contact[i].surface.soft_cfm   = 1e-4; // CFM of contact point
+      contact[i].surface.soft_erp   = 0.1;   // ERP of contact point (good reproductibity)
+      //contact[i].surface.soft_cfm   = 1e-4; // CFM of contact point
+      contact[i].surface.soft_cfm   = 1e-9; // CFM of contact point
       contact[i].surface.mu     = dInfinity; // friction coefficient: infinity
       dJointID c = dJointCreateContact(world,
                                        contactgroup,&contact[i]);
@@ -611,9 +608,10 @@ int main (int argc, char *argv[])
 
   dWorldSetGravity( world, 0,0, -9.8 );      // set gravity
   //dWorldSetERP( world, 0.9);                // set ERP (original)
-  //dWorldSetERP( world, 0.1);                // set ERP
-  dWorldSetERP( world, 1e-3 );                // set ERP
-  dWorldSetCFM( world, 1e-4);               // set CFM
+  //dWorldSetERP( world, 1e-3 );                // set ERP
+  dWorldSetERP( world, 1e-1 );                // set ERP
+  //dWorldSetCFM( world, 1e-4 );               // set CFM
+  dWorldSetCFM( world, 1e-9 );               // set CFM
   ground = dCreatePlane(space, 0, 0, 1, 0); // set ground
   
   loadCommand();
