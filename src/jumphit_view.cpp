@@ -21,8 +21,8 @@ using namespace std;
 #define dsDrawCapsule  dsDrawCapsuleD
 #endif
  
-//#define VIEW 1
-#define VIEW 0
+#define VIEW 1
+//#define VIEW 0
 
 #define N_Box 0
 #define N_Sphere 1
@@ -31,6 +31,7 @@ using namespace std;
 #define NUM_l 9  // link number
 #define NUM_p 27 // parameter number
 #define NUM_c 2  // chambers number in one cylinder
+//#define Num_t 1000
 #define NUM_t 10000
 #define NUM_r 9 // number of object in matrix R of the trunk
 
@@ -51,8 +52,6 @@ using namespace std;
 
 #define MAX_str 1024
 #define NUM_OF_PHASE 10
-//#define MAX_SIMULATION_TIME 1.0
-//unsigned int NUM_t = MAX_SIMULATION_TIME / TIMESTEP;
 
 dWorldID world;             // dynamic simulation world
 dSpaceID space;             // contact dection space
@@ -440,8 +439,8 @@ static void nearCallback(void *data, dGeomID o1, dGeomID o2) // collison detecti
     for (int i = 0; i < n; i++) {
       contact[i].surface.mode   = dContactBounce | dContactSoftERP |
                                   dContactSoftCFM;
-      contact[i].surface.soft_erp   = 1e-3;   // ERP of contact point (good reproductibity)
-      contact[i].surface.soft_cfm   = 1e-3; // CFM of contact point
+      contact[i].surface.soft_erp   = 0.2;   // ERP of contact point
+      contact[i].surface.soft_cfm   = 0.001; // CFM of contact point
       contact[i].surface.mu     = dInfinity; // friction coefficient: infinity
       dJointID c = dJointCreateContact(world,
                                        contactgroup,&contact[i]);
@@ -558,11 +557,10 @@ void setDrawStuff()        // setup of draw functions
   fn.path_to_textures = "../../drawstuff/textures"; // texture path
 }
 
-void saveData(int num_t_){
+void saveData(){
   ofstream fout_r( filename_r, ios::out);	
 
-  //for(int t=0; t < NUM_t; t++){
-  for(int t=0; t < num_t_; t++){
+  for(int t=0; t < NUM_t; t++){
     fout_r << t << "\t";
     for(int i=0; i < NUM_l; i++)
       for(int d=0; d < XYZ; d++)
@@ -588,15 +586,6 @@ void saveData(int num_t_){
 
 int main (int argc, char *argv[])
 {
-  // get simulation time
-  if ( argc != 2 ){
-    cout << "input simulation time." << endl;
-    return -1;
-  }
-  double simulation_time = atof( argv[1] );
-  int num_t = simulation_time / TIMESTEP;
-  //cout << "time number: " << num_t << endl;
-
   // initiation
   dInitODE();
   setDrawStuff();
@@ -605,13 +594,9 @@ int main (int argc, char *argv[])
   space        = dHashSpaceCreate(0);
   contactgroup = dJointGroupCreate(0);
 
-  dWorldSetGravity( world, 0,0, -9.8 );      // set gravity
-  //dWorldSetERP( world, 0.9);                // set ERP ( original )
-  //dWorldSetCFM( world, 1e-4 );               // set CFM ( original )
-
-  dWorldSetERP( world, 1e-3 );               // set ERP
-  dWorldSetCFM( world, 1e-3 );               // set CFM
-
+  dWorldSetGravity( world, 0,0, -9.8);      // set gravity
+  dWorldSetERP( world, 0.9);                // set ERP
+  dWorldSetCFM( world, 1e-4);               // set CFM
   ground = dCreatePlane(space, 0, 0, 1, 0); // set ground
   
   loadCommand();
@@ -620,18 +605,16 @@ int main (int argc, char *argv[])
 
   // loop
   if ( VIEW == 1)
-    dsSimulationLoop( argc, argv, 640, 480, &fn );
+    dsSimulationLoop ( argc, argv, 640, 480, &fn);
   else
-    //for (int i = 0; i < NUM_t; i++) 
-    //simLoop(0);
-    for ( int i = 0; i < num_t; i++ ) 
+    for (int i = 0; i < NUM_t; i++) 
       simLoop(0);
- 
+
   // termination
   dWorldDestroy (world);
   dCloseODE();
 
-  //saveData();
-  saveData(num_t);
+  saveData();
+
   return 0;
 }
