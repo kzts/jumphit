@@ -107,7 +107,11 @@ double dataTorque[NUM_t][NUM_l];
 double dataPosture[NUM_t][NUM_l][NUM_r];
 double dataPressure[NUM_t][NUM_l][NUM_c];
 
-char filename_r[999] = "../data/results.dat";
+//char filename_r[999] = "../data/results.dat";
+
+#define RESULTS_FILE "../data/results.dat"
+#define COMMAND_FILE "../data/command.dat"
+#define POSTURE_FILE "../data/posture.dat"
 
 dReal radius = 0.02;
 //dReal height = 0.5;
@@ -126,7 +130,8 @@ void loadCommand(void){
   double phase_time[NUM_OF_PHASE];
   char s[NUM_l + NUM_l + 2][MAX_str]; 
 
-  fp_cmd = fopen( "../data/command.dat", "r");
+  //fp_cmd = fopen( "../data/command.dat", "r");
+  fp_cmd = fopen( COMMAND_FILE, "r");
   
   if (fp_cmd == NULL){
     printf("File open error\n");
@@ -285,7 +290,8 @@ void updatePressureAll(void)
 
 void loadRobot(void)
 {
-  ifstream ifs("/home/isi/tanaka/MATLAB/Data/jumpHitODE/InitialPosture.dat");
+  //ifstream ifs("/home/isi/tanaka/MATLAB/Data/jumpHitODE/InitialPosture.dat");
+  ifstream ifs( POSTURE_FILE );
   string str;
 
   if ( ifs.fail()){
@@ -559,7 +565,8 @@ void setDrawStuff()        // setup of draw functions
 }
 
 void saveData(int num_t_){
-  ofstream fout_r( filename_r, ios::out);	
+  //ofstream fout_r( filename_r, ios::out);	
+  ofstream fout_r( RESULTS_FILE, ios::out);	
 
   //for(int t=0; t < NUM_t; t++){
   for(int t=0; t < num_t_; t++){
