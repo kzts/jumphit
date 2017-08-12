@@ -112,6 +112,7 @@ double dataPressure[NUM_t][NUM_l][NUM_c];
 #define RESULTS_FILE "../data/results.dat"
 #define COMMAND_FILE "../data/command.dat"
 #define POSTURE_FILE "../data/posture.dat"
+#define TIME_FILE    "../data/time.dat"
 
 dReal radius = 0.02;
 //dReal height = 0.5;
@@ -123,6 +124,26 @@ double Time_switch[NUM_OF_PHASE] = {};
 double Value_valves[NUM_l] = {};
 
 int Idx_R[NUM_r] = { 0,1,2, 4,5,6, 8,9,10};
+
+double loadTime(void){
+  FILE *fp;
+  char str[MAX_str];
+  double time;
+  // open
+  fp = fopen( TIME_FILE, "r");
+  if (fp == NULL){
+    printf( "File open error: %s.\n", TIME_FILE );
+    return -1.0;
+  }
+  // gets
+  fgets( str, MAX_str, fp );
+  time = atof(str);
+  // close   
+  fclose(fp);
+  // return
+  return time;
+}
+
 
 void loadCommand(void){
   FILE *fp_cmd;
@@ -447,8 +468,8 @@ static void nearCallback(void *data, dGeomID o1, dGeomID o2) // collison detecti
       contact[i].surface.mode   = dContactBounce | dContactSoftERP |
                                   dContactSoftCFM;
       contact[i].surface.soft_erp   = 1e-3;   // ERP of contact point (good reproductibity)
-      //contact[i].surface.soft_cfm   = 1e-3; // CFM of contact point
-      contact[i].surface.soft_cfm   = 1e-4; // CFM of contact point // try
+      contact[i].surface.soft_cfm   = 1e-3; // CFM of contact point
+      
       contact[i].surface.mu     = dInfinity; // friction coefficient: infinity
       dJointID c = dJointCreateContact(world,
                                        contactgroup,&contact[i]);
@@ -597,11 +618,12 @@ void saveData(int num_t_){
 int main (int argc, char *argv[])
 {
   // get simulation time
-  if ( argc != 2 ){
-    cout << "input simulation time." << endl;
-    return -1;
-  }
-  double simulation_time = atof( argv[1] );
+  //if ( argc != 2 ){
+  //cout << "input simulation time." << endl;
+  //return -1;
+  //}
+  //double simulation_time = atof( argv[1] );
+  double simulation_time = loadTime();
   int num_t = simulation_time / TIMESTEP;
   //cout << "time number: " << num_t << endl;
 
@@ -617,11 +639,8 @@ int main (int argc, char *argv[])
   //dWorldSetERP( world, 0.9);                // set ERP ( original )
   //dWorldSetCFM( world, 1e-4 );               // set CFM ( original )
 
-  //dWorldSetERP( world, 1e-3 );               // set ERP
-  //dWorldSetCFM( world, 1e-3 );               // set CFM
-
-  //dWorldSetERP( world, 1e-3 );               // set ERP
-  dWorldSetCFM( world, 1e-4 );               // set CFM
+  dWorldSetERP( world, 1e-3 );               // set ERP
+  dWorldSetCFM( world, 1e-3 );               // set CFM
 
   ground = dCreatePlane(space, 0, 0, 1, 0); // set ground
   
