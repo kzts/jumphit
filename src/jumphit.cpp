@@ -31,7 +31,7 @@ using namespace std;
 #define NUM_l 9  // link number
 #define NUM_p 27 // parameter number
 #define NUM_c 2  // chambers number in one cylinder
-#define NUM_t 10000
+#define NUM_t 100000
 #define NUM_r 9 // number of object in matrix R of the trunk
 
 #define XYZ 3
@@ -109,8 +109,8 @@ double dataPressure[NUM_t][NUM_l][NUM_c];
 
 //char filename_r[999] = "../data/results.dat";
 
-#define RESULTS_FILE "../data/results.dat"
-#define COMMAND_FILE "../data/command.dat"
+//#define RESULTS_FILE "../data/results.dat"
+//#define COMMAND_FILE "../data/command.dat"
 #define POSTURE_FILE "../data/posture.dat"
 #define TIME_FILE    "../data/time.dat"
 
@@ -145,14 +145,16 @@ double loadTime(void){
 }
 
 
-void loadCommand(void){
+//void loadCommand(void){
+void loadCommand( const char* filename ){
   FILE *fp_cmd;
   char str[MAX_str];
   double phase_time[NUM_OF_PHASE];
   char s[NUM_l + NUM_l + 2][MAX_str]; 
 
   //fp_cmd = fopen( "../data/command.dat", "r");
-  fp_cmd = fopen( COMMAND_FILE, "r");
+  //fp_cmd = fopen( COMMAND_FILE, "r");
+  fp_cmd = fopen( filename, "r");
   
   if (fp_cmd == NULL){
     printf("File open error\n");
@@ -398,23 +400,35 @@ void  setRobot() // make the robot
 
     // mass
     dMassSetZero( &mass);
-    if ( uLINK[i].num_shape == N_Box)
+    if ( uLINK[i].num_shape == N_Box){
       //dMassSetBox ( &mass, uLINK[i].m, uLINK[i].l[0], uLINK[i].l[1], uLINK[i].l[2]);
       dMassSetBox ( &mass, uLINK[i].m/ uLINK[i].l[0] /uLINK[i].l[1] /uLINK[i].l[2], uLINK[i].l[0], uLINK[i].l[1], uLINK[i].l[2]);
-    else if ( uLINK[i].num_shape == N_Sphere)
+    }else if ( uLINK[i].num_shape == N_Sphere){
       dMassSetSphereTotal(  &mass, uLINK[i].m, radius);
-    else
+    }else{
+      //double l = 0;
+      //for (int n = 0; n < XYZ; n++)
+      //if( uLINK[i].l[n] > l )
+      //l = uLINK[i].l[n];
+      //dMassSetCapsuleTotal( &mass, uLINK[i].m, 3, radius, l );
       dMassSetCapsuleTotal( &mass, uLINK[i].m, 3, radius, uLINK[i].l[2]);
+    }
     dBodySetMass( rlink[i].body, &mass);
     //cout << "#" << i << ": " << mass.mass << endl; 
 
     // geometory
-    if ( uLINK[i].num_shape == N_Box)
+    if ( uLINK[i].num_shape == N_Box){
       rlink[i].geom  = dCreateBox( space, uLINK[i].l[0], uLINK[i].l[1], uLINK[i].l[2]);
-    else if ( uLINK[i].num_shape == N_Sphere)
+    }else if ( uLINK[i].num_shape == N_Sphere){
       rlink[i].geom  = dCreateSphere( space, uLINK[i].l[0]);
-    else
+    }else{
+      //double l = 0;
+      //for (int n = 0; n < XYZ; n++)
+      //if( uLINK[i].l[n] > l )
+      //l = uLINK[i].l[n];
+      //rlink[i].geom  = dCreateCapsule( space, radius, l );
       rlink[i].geom  = dCreateCapsule( space, radius, uLINK[i].l[2]);
+    }
     dGeomSetBody( rlink[i].geom, rlink[i].body);
   }
 
@@ -440,13 +454,20 @@ void  setRobot() // make the robot
 
 void drawRobot() // draw the robot
 {
-  for (int i = 0; i < NUM_l; i++ ) // draw capsule
-    if ( uLINK[i].num_shape == N_Box)
+  for (int i = 0; i < NUM_l; i++ ){ // draw capsule
+    if ( uLINK[i].num_shape == N_Box){
       dsDrawBox( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), uLINK[i].l);
-    else if ( uLINK[i].num_shape == N_Sphere)
+    }else if ( uLINK[i].num_shape == N_Sphere){
       dsDrawSphere( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), radius);
-    else
+    }else{
+      //double l = 0;
+      //for (int n = 0; n < XYZ; n++)
+      //if( uLINK[i].l[n] > l )
+      //l = uLINK[i].l[n];
+      //dsDrawCapsule( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), l, radius );
       dsDrawCapsule( dBodyGetPosition( rlink[i].body), dBodyGetRotation(rlink[i].body), uLINK[i].l[2], radius);
+    }
+  }
 }
 
 
@@ -467,8 +488,10 @@ static void nearCallback(void *data, dGeomID o1, dGeomID o2) // collison detecti
     for (int i = 0; i < n; i++) {
       contact[i].surface.mode   = dContactBounce | dContactSoftERP |
                                   dContactSoftCFM;
-      contact[i].surface.soft_erp   = 1e-3;   // ERP of contact point (good reproductibity)
-      contact[i].surface.soft_cfm   = 1e-3; // CFM of contact point
+      //contact[i].surface.soft_erp   = 1e-3;   // ERP of contact point (good reproductibity)
+      //contact[i].surface.soft_cfm   = 1e-3; // CFM of contact point
+      contact[i].surface.soft_erp   = 1e-4;   // try
+      contact[i].surface.soft_cfm   = 1e-4;   // try
       
       contact[i].surface.mu     = dInfinity; // friction coefficient: infinity
       dJointID c = dJointCreateContact(world,
@@ -583,12 +606,15 @@ void setDrawStuff()        // setup of draw functions
   fn.version = DS_VERSION; // version of draw stuff
   fn.start   = &start;     // preprocess: pointer of start function 
   fn.step    = &simLoop;   // pointer of function simLoop
-  fn.path_to_textures = "../../drawstuff/textures"; // texture path
+  fn.path_to_textures = "../../../drawstuff/textures"; // texture path
 }
 
-void saveData(int num_t_){
+//void saveData(int num_t_){
+void saveData(int num_t_, const char* filename ){
+  
   //ofstream fout_r( filename_r, ios::out);	
-  ofstream fout_r( RESULTS_FILE, ios::out);	
+  //ofstream fout_r( RESULTS_FILE, ios::out);
+  ofstream fout_r( filename, ios::out);	
 
   //for(int t=0; t < NUM_t; t++){
   for(int t=0; t < num_t_; t++){
@@ -617,6 +643,14 @@ void saveData(int num_t_){
 
 int main (int argc, char *argv[])
 {
+    // file name
+  if( argc != 3 ){
+    std::cout << "./jumphit command_file results_file." << std::endl;
+    return -1;
+  }
+  const char* command_file = argv[1];
+  const char* results_file = argv[2];
+  
   // get simulation time
   //if ( argc != 2 ){
   //cout << "input simulation time." << endl;
@@ -639,17 +673,20 @@ int main (int argc, char *argv[])
   //dWorldSetERP( world, 0.9);                // set ERP ( original )
   //dWorldSetCFM( world, 1e-4 );               // set CFM ( original )
 
-  dWorldSetERP( world, 1e-3 );               // set ERP
-  dWorldSetCFM( world, 1e-3 );               // set CFM
+  //dWorldSetERP( world, 1e-3 );               // set ERP
+  //dWorldSetCFM( world, 1e-3 );               // set CFM
+  dWorldSetERP( world, 1e-4 );               // try
+  dWorldSetCFM( world, 1e-4 );               // try
 
   ground = dCreatePlane(space, 0, 0, 1, 0); // set ground
   
-  loadCommand();
+  //loadCommand();
+  loadCommand( command_file );
   loadRobot();                             // set the robot
   setRobot();                              // set the robot
 
   // loop
-  if ( VIEW == 1)
+  if ( VIEW == 1 )
     dsSimulationLoop( argc, argv, 640, 480, &fn );
   else
     //for (int i = 0; i < NUM_t; i++) 
@@ -662,6 +699,7 @@ int main (int argc, char *argv[])
   dCloseODE();
 
   //saveData();
-  saveData(num_t);
+  //saveData(num_t);
+  saveData( num_t, results_file );
   return 0;
 }
